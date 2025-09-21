@@ -10,7 +10,7 @@ from tqdm import tqdm
 from pathlib import Path
 from argparse import Namespace
 from datetime import datetime
-from .agents import MPCAgent
+from .agents import ILQRAgent
 from .memory import ReplayBuffer
 from gymnasium.wrappers import RescaleAction, DtypeObservation
 from .env_utils import ActionRepeatWrapper
@@ -75,14 +75,13 @@ def train(
         x_dim=args.x_dim,
         u_dim=env.action_space.shape[0],
         a_dim=args.a_dim,
-        device=device,
+        hidden_dim=args.hidden_dim,
     ).to(device)
 
     cost_model = CostModel(
         x_dim=args.x_dim,
         u_dim=env.action_space.shape[0],
         device=device,
-        hidden_dim=args.hidden_dim,
     ).to(device)
 
     wandb.watch([encoder, dynamics_model, decoder, cost_model], log="all", log_freq=10)
@@ -97,11 +96,12 @@ def train(
     optimizer = torch.optim.Adam(all_params, lr=args.lr, eps=args.eps)
 
     # agent
-    agent = MPCAgent(
+    agent = ILQRAgent(
         encoder=encoder,
         dynamics_model=dynamics_model,
         cost_model=cost_model,
-        planning_horizon=args.planning_horizon
+        planning_horizon=args.planning_horizon,
+        action_noise=args.action_noise_std,
     )
 
     # replay buffer
@@ -172,8 +172,9 @@ def train(
                     a=a[t],
                 )
                 cost_loss += nn.MSELoss()(cost_model(x=mean, u=u[t]), c[t])
+                filter_a = dynamics_model.get_a(mean)
                 y_filter_loss += nn.MSELoss()(
-                    decoder(mean @ dynamics_model.C.T),
+                    decoder(filter_a),
                     y[t],
                 )
 
@@ -189,7 +190,8 @@ def train(
                         cov=pred_cov,
                         u=u[t+k]
                     )
-                    pred_y[k] = decoder(pred_mean @ dynamics_model.C.T)
+                    pred_a = dynamics_model.get_a(pred_mean)
+                    pred_y[k] = decoder(pred_a)
 
                 true_y = y[t+1: t+1+args.prediction_k]
                 true_y_flatten = einops.rearrange(true_y, "k b y -> (k b) y")
