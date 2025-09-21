@@ -160,21 +160,21 @@ def train(
             y_filter_loss = 0.0
             cost_loss = 0.0
 
-            for t in range(args.chunk_length - args.prediction_k - 1):
+            for t in range(1, args.chunk_length - args.prediction_k):
                 mean, cov = dynamics_model.dynamics_update(
                     mean=mean,
                     cov=cov,
-                    u=u[t],
+                    u=u[t-1],
                 )
                 mean, cov = dynamics_model.measurement_update(
                     mean=mean,
                     cov=cov,
-                    a=a[t+1],
+                    a=a[t],
                 )
-                cost_loss += nn.MSELoss()(cost_model(x=mean, u=u[t+1]), c[t+1])
+                cost_loss += nn.MSELoss()(cost_model(x=mean, u=u[t]), c[t])
                 y_filter_loss += nn.MSELoss()(
                     decoder(mean @ dynamics_model.C.T),
-                    y[t+1],
+                    y[t],
                 )
 
                 # tensors to hold predictions of future ys
@@ -187,11 +187,11 @@ def train(
                     pred_mean, pred_cov = dynamics_model.dynamics_update(
                         mean=pred_mean,
                         cov=pred_cov,
-                        u=u[t+k+1]
+                        u=u[t+k]
                     )
                     pred_y[k] = decoder(pred_mean @ dynamics_model.C.T)
 
-                true_y = y[t+2: t+2+args.prediction_k]
+                true_y = y[t+1: t+1+args.prediction_k]
                 true_y_flatten = einops.rearrange(true_y, "k b y -> (k b) y")
                 pred_y_flatten = einops.rearrange(pred_y, "k b y -> (k b) y")
                 y_pred_loss += nn.MSELoss()(pred_y_flatten, true_y_flatten)
