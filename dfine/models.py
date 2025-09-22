@@ -174,15 +174,6 @@ class Dynamics(nn.Module):
         self.nx_head = nn.Linear(hidden_dim, x_dim)
         self.na_head = nn.Linear(hidden_dim, a_dim)
 
-        # self._init_weights()
-
-    # def _init_weights(self):
-    #     for m in self.modules():
-    #         if isinstance(m, nn.Linear):
-    #             init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
-    #             if m.bias is not None:
-    #                 init.zeros_(m.bias)
-
     def make_psd(self, P, eps=1e-6):
         b = P.shape[0]
         P = 0.5 * (P + P.transpose(-1, -2))
