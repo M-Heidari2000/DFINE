@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import Optional
+import torch.nn.init as init
 
 
 class Encoder(nn.Module):
@@ -28,6 +29,15 @@ class Encoder(nn.Module):
             nn.Dropout(p=dropout_p),
             nn.Linear(hidden_dim, a_dim),
         )
+
+        self._init_weights()
+
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
+                if m.bias is not None:
+                    init.zeros_(m.bias)
 
     def forward(self, y):
         return self.mlp_layers(y)
@@ -58,6 +68,15 @@ class Decoder(nn.Module):
             nn.Dropout(p=dropout_p),
             nn.Linear(hidden_dim, y_dim),
         )
+
+        self._init_weights()
+
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
+                if m.bias is not None:
+                    init.zeros_(m.bias)
 
     def forward(self, a):
         return self.mlp_layers(a)
@@ -106,7 +125,6 @@ class CostModel(nn.Module):
     def forward(self, x, u):
         # x: b x
         # u: b u
-        # TODO: use torch.einsum for efficieny
         cost = 0.5 * x @ self.Q @ x.T + 0.5 * u @ self.R @ u.T
         cost = cost.diagonal().unsqueeze(1) + x @ self.q
         return cost
@@ -124,6 +142,7 @@ class Dynamics(nn.Module):
         u_dim: int,
         a_dim: int,
         hidden_dim: Optional[int]=128,
+        dropout_p: Optional[float]=0.4,
         min_var: float=1e-4,
     ):
         super().__init__()
@@ -136,24 +155,33 @@ class Dynamics(nn.Module):
         self.backbone = nn.Sequential(
             nn.Linear(x_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(p=dropout_p),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(p=dropout_p),
         )
 
-        self.A_net = nn.Sequential(
-            nn.Linear(hidden_dim, x_dim * x_dim),
+        self.r_head = nn.Sequential(
+            nn.Linear(hidden_dim, x_dim),
             nn.Tanh(),
         )
-        self.B_net = nn.Sequential(
-            nn.Linear(hidden_dim, x_dim * u_dim),
+        self.v_head = nn.Sequential(
+            nn.Linear(hidden_dim, x_dim),
             nn.Tanh(),
         )
-        self.C_net = nn.Sequential(
-            nn.Linear(hidden_dim, a_dim * x_dim),
-            nn.Tanh(),
-        )
-        self.nx_net = nn.Linear(hidden_dim, x_dim)
-        self.na_net = nn.Linear(hidden_dim, a_dim)
+        self.B_head = nn.Linear(hidden_dim, x_dim * u_dim)
+        self.C_head = nn.Linear(hidden_dim, a_dim * x_dim)
+        self.nx_head = nn.Linear(hidden_dim, x_dim)
+        self.na_head = nn.Linear(hidden_dim, a_dim)
+
+        # self._init_weights()
+
+    # def _init_weights(self):
+    #     for m in self.modules():
+    #         if isinstance(m, nn.Linear):
+    #             init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
+    #             if m.bias is not None:
+    #                 init.zeros_(m.bias)
 
     def make_psd(self, P, eps=1e-6):
         b = P.shape[0]
@@ -167,12 +195,15 @@ class Dynamics(nn.Module):
         """
         b = x.shape[0]
         hidden = self.backbone(x)
-        A = self.A_net(hidden).reshape(b, self.x_dim, self.x_dim)
-        B = self.B_net(hidden).reshape(b, self.x_dim, self.u_dim)
-        C = self.C_net(hidden).reshape(b, self.a_dim, self.x_dim)
-        Nx = torch.diag_embed(nn.functional.softplus(self.nx_net(hidden)) + self._min_var)
-        Na = torch.diag_embed(nn.functional.softplus(self.na_net(hidden)) + self._min_var)
-        
+        v = self.v_head(hidden)
+        r = self.r_head(hidden)
+        I = torch.eye(self.x_dim, device=x.device).expand([b, -1, -1])
+        A = I + torch.einsum('bi,bj->bij', v, r)
+        B = self.B_head(hidden).reshape(b, self.x_dim, self.u_dim)
+        C = self.C_head(hidden).reshape(b, self.a_dim, self.x_dim)
+        Nx = torch.diag_embed(nn.functional.softplus(self.nx_head(hidden)) + self._min_var)
+        Na = torch.diag_embed(nn.functional.softplus(self.na_head(hidden)) + self._min_var)
+
         return A, B, C, Nx, Na
     
     def get_a(self, x):
