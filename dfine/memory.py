@@ -1,10 +1,32 @@
+import minari
 import numpy as np
+from tqdm import tqdm
 
 
 class ReplayBuffer:
     """
         Replay buffer holds sample trajectories
     """
+
+    @staticmethod
+    def load_from_minari(dataset: minari.MinariDataset):
+        buffer = ReplayBuffer(
+            capacity=dataset.total_steps,
+            y_dim=dataset.observation_space.shape[0],
+            u_dim=dataset.action_space.shape[0],
+        )
+        print("loading the dataset ...")
+        for episode in tqdm(dataset):
+            steps = episode.actions.shape[0]
+            for i in range(steps):
+                buffer.push(
+                    y=episode.observations[i],
+                    u=episode.actions[i],
+                    c=-episode.rewards[i],
+                    done=episode.terminations[i] or episode.truncations[i],
+                )
+        return buffer
+
     def __init__(
         self,
         capacity: int,
