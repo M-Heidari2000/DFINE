@@ -209,7 +209,7 @@ def train(
             total_loss = (
                 y_pred_loss +
                 y_filter_loss +
-                cost_loss
+                args.cost_weight * cost_loss
             )
 
             optimizer.zero_grad()
