@@ -14,7 +14,7 @@ class ILQRAgent:
         dynamics_model,
         cost_model,
         planning_horizon: int,
-        num_iterations: int = 50,
+        num_iterations: int = 10,
         action_noise: float = 0.3
 
     ):
@@ -79,8 +79,7 @@ class ILQRAgent:
             ] * self.planning_horizon
 
             for _ in range(self.num_iterations + 1):
-                initial_state = self.mean
-
+                state = self.mean
                 As = []
                 Bs = []
                 actions = torch.zeros(
@@ -90,8 +89,7 @@ class ILQRAgent:
                 )
                 # rollout a trajectory with current policy
                 for t in range(self.planning_horizon):
-                    state = initial_state
-                    action = state @ Ks[t].T + ks[t].T
+                    action = (state @ Ks[t].T + ks[t].T).clamp(min=-1.0, max=1.0)
                     actions[t] = action
                     A, B, _, _, _ = self.dynamics_model.get_dynamics(state)
                     A, B = A.squeeze(0), B.squeeze(0)
@@ -160,7 +158,7 @@ class MPCAgent:
         dynamics_model,
         cost_model,
         planning_horizon: int,
-        num_iterations: int = 50,
+        num_iterations: int = 10,
         action_noise: float = 0.3
 
     ):
@@ -212,13 +210,13 @@ class MPCAgent:
                 device=self.device,
                 dtype=torch.float32,
             )
+
             for _ in range(self.num_iterations + 1):
-                initial_state = self.mean
+                state = self.mean
                 As = []
                 Bs = []
                 # rollout a trajectory with current policy
                 for t in range(self.planning_horizon):
-                    state = initial_state
                     A, B, _, _, _ = self.dynamics_model.get_dynamics(state)
                     A, B = A.squeeze(0), B.squeeze(0)
                     state = state @ A.T + planned_actions[t] @ B.T
@@ -263,7 +261,7 @@ class MPCAgent:
             T=self.planning_horizon,
             u_lower=-1.0,
             u_upper=1.0,
-            lqr_iter=50,
+            lqr_iter=10,
             backprop=False,
             exit_unconverged=False,
         )
