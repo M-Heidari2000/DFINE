@@ -5,15 +5,13 @@ import wandb
 import einops
 import numpy as np
 import torch.nn as nn
-import gymnasium as gym
 from tqdm import tqdm
 from pathlib import Path
 from argparse import Namespace
 from datetime import datetime
-from .agents import ILQRAgent
+from .agents import MPCAgent
 from .memory import ReplayBuffer
-from gymnasium.wrappers import RescaleAction, DtypeObservation
-from .env_utils import ActionRepeatWrapper
+from .env_utils import make_env
 from torch.nn.utils import clip_grad_norm_
 from .models import (
     Encoder,
@@ -49,10 +47,7 @@ def train(
         torch.cuda.manual_seed(args.seed)
 
     # make environment
-    env = gym.make(id=args.env)
-    env = DtypeObservation(env=env, dtype=np.float32)
-    env = RescaleAction(env=env, min_action=-1.0, max_action=1.0)
-    env = ActionRepeatWrapper(env=env, repeat=args.action_repeat)
+    env = make_env(id=args.env, action_repeat=args.action_repeat)
 
     # define models and optimizer
     device = "cuda" if (torch.cuda.is_available() and not args.disable_gpu) else "cpu"
@@ -96,7 +91,7 @@ def train(
     optimizer = torch.optim.Adam(all_params, lr=args.lr, eps=args.eps)
 
     # agent
-    agent = ILQRAgent(
+    agent = MPCAgent(
         encoder=encoder,
         dynamics_model=dynamics_model,
         cost_model=cost_model,
@@ -234,7 +229,7 @@ def train(
             done = False
             while not done:
                 planned_actions = agent(y=obs, u=action, explore=True)
-                action = planned_actions[0]
+                action = planned_actions[0].flatten()
                 next_obs, reward, terminated, truncated, _ = env.step(action=action)
                 done = terminated or truncated
                 buffer.push(
@@ -262,7 +257,7 @@ def train(
                     total_reward = 0.0
                     while not done:
                         planned_actions = agent(y=obs, u=action, explore=False)
-                        action = planned_actions[0]
+                        action = planned_actions[0].flatten()
                         next_obs, reward, terminated, truncated, _ = env.step(action=action)
                         done = terminated or truncated
                         obs = next_obs

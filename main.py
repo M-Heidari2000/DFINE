@@ -28,7 +28,6 @@ if __name__ == "__main__":
     parser.add_argument("--eps", type=float, default=1e-8, help="epsilon for optimizer")
     parser.add_argument("--cost-weight", type=float, default=1.0, help="weight associated to the cost model term in the loss")
     parser.add_argument("--clip-grad-norm", type=float, default=1000.0, help="clip gradients to this value")
-    parser.add_argument("--balancing-weight", type=float, default=1.0, help="weight assigned to balancing term in the loss function")
     parser.add_argument("--disable-gpu", action="store_true", default=False, help="disable using gpu")
 
     args = parser.parse_args()
