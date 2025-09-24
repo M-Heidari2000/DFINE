@@ -55,7 +55,7 @@ if __name__ == "__main__":
     
     wandb.init(
         project="Controlling from high-dimensional observations",
-        name="DFINE",
+        name="Global DFINE",
         config=vars(args),
     )
 

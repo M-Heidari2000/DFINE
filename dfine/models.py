@@ -141,8 +141,6 @@ class Dynamics(nn.Module):
         x_dim: int,
         u_dim: int,
         a_dim: int,
-        hidden_dim: Optional[int]=128,
-        dropout_p: Optional[float]=0.4,
         min_var: float=1e-4,
     ):
         super().__init__()
@@ -152,67 +150,48 @@ class Dynamics(nn.Module):
         self.a_dim = a_dim
         self._min_var = min_var
 
-        self.backbone = nn.Sequential(
-            nn.Linear(x_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(p=dropout_p),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(p=dropout_p),
+        # Dynamics matrices
+        self.A = nn.Parameter(
+            torch.eye(self.x_dim)
+        )
+        self.B = nn.Parameter(
+            torch.randn(self.x_dim, self.u_dim),
+        )
+        self.C = nn.Parameter(
+            torch.randn(self.a_dim, self.x_dim)
         )
 
-        self.r_head = nn.Sequential(
-            nn.Linear(hidden_dim, x_dim),
-            nn.Tanh(),
+        # Transition noise covariance (diagonal)
+        self.nx = nn.Parameter(
+            torch.randn(self.x_dim)
         )
-        self.v_head = nn.Sequential(
-            nn.Linear(hidden_dim, x_dim),
-            nn.Tanh(),
+        # Observation noise covariance (diagonal)
+        self.na = nn.Parameter(
+            torch.randn(self.a_dim)
         )
-        self.B_head = nn.Linear(hidden_dim, x_dim * u_dim)
-        self.C_head = nn.Linear(hidden_dim, a_dim * x_dim)
-        self.nx_head = nn.Linear(hidden_dim, x_dim)
-        self.na_head = nn.Linear(hidden_dim, a_dim)
 
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.backbone.modules():
-            if isinstance(m, nn.Linear):
-                init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
-                if m.bias is not None:
-                    init.zeros_(m.bias)
+    @property
+    def Na(self):
+        Na = torch.diag(nn.functional.softplus(self.na) + self._min_var)    # shape: a a
+        return Na
+    
+    @property
+    def Nx(self):
+        Nx = torch.diag(nn.functional.softplus(self.nx) + self._min_var)    # shape: x x
+        return Nx
 
     def make_psd(self, P, eps=1e-6):
         b = P.shape[0]
         P = 0.5 * (P + P.transpose(-1, -2))
         P = P + eps * torch.eye(P.size(-1), device=P.device).expand([b, -1, -1])
         return P
-
-    def get_dynamics(self, x):
-        """
-            get dynamics matrices depending on the state x
-        """
-        b = x.shape[0]
-        hidden = self.backbone(x)
-        v = self.v_head(hidden)
-        r = self.r_head(hidden)
-        I = torch.eye(self.x_dim, device=x.device).expand([b, -1, -1])
-        A = I + torch.einsum('bi,bj->bij', v, r)
-        B = self.B_head(hidden).reshape(b, self.x_dim, self.u_dim)
-        C = self.C_head(hidden).reshape(b, self.a_dim, self.x_dim)
-        Nx = torch.diag_embed(nn.functional.softplus(self.nx_head(hidden)) + self._min_var)
-        Na = torch.diag_embed(nn.functional.softplus(self.na_head(hidden)) + self._min_var)
-
-        return A, B, C, Nx, Na
     
     def get_a(self, x):
         """
         returns emissions (a) based on the input state (x)
         """
 
-        A, B, C, Nx, Na = self.get_dynamics(x=x)
-        return torch.einsum('bij,bj->bi', C, x)
+        return x @ self.C.T
 
     def dynamics_update(
         self,
@@ -228,10 +207,8 @@ class Dynamics(nn.Module):
             u: b u
         """
 
-        A, B, C, Nx, Na = self.get_dynamics(x=mean)
-
-        next_mean = torch.einsum('bij,bj->bi', A, mean) + torch.einsum('bij,bj->bi', B, u)
-        next_cov = torch.einsum('bij,bjk,bkl->bil', A, cov, A.transpose(1, 2)) + Nx
+        next_mean = mean @ self.A.T + u @ self.B.T
+        next_cov = self.A @ cov @ self.A.T + self.Nx
         next_cov = self.make_psd(next_cov)
 
         return next_mean, next_cov
@@ -250,13 +227,10 @@ class Dynamics(nn.Module):
             a: b a
         """
 
-        A, B, C, Nx, Na = self.get_dynamics(x=mean)
 
-        S = torch.einsum('bij,bjk,bkl->bil', C, cov, C.transpose(1, 2)) + Na
-        G = torch.einsum('bij,bjk,bkl->bil', cov, C.transpose(1, 2), torch.linalg.pinv(S))
-        innovation = a - torch.einsum('bij,bj->bi', C, mean)
-        next_mean = mean + torch.einsum('bij,bj->bi', G, innovation)
-        next_cov = cov - torch.einsum('bij,bjk,bkl->bil', G, C, cov)
+        K = cov @ self.C.T @ torch.linalg.pinv(self.C @ cov @ self.C.T + self.Na)
+        next_mean = mean + ((a - mean @ self.C.T).unsqueeze(1) @ K.transpose(1, 2)).squeeze(1)
+        next_cov = (torch.eye(self.x_dim, device=K.device) - K @ self.C) @ cov
         next_cov = self.make_psd(next_cov)
 
         return next_mean, next_cov

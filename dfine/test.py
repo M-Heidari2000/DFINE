@@ -4,7 +4,7 @@ import numpy as np
 import gymnasium as gym
 from argparse import Namespace
 from tqdm import tqdm
-from .agents import ILQRAgent
+from .agents import MPCAgent
 from .models import (
     Encoder,
     Dynamics,
@@ -25,7 +25,7 @@ def test(
     cost_model.eval()
 
     # agent
-    agent = ILQRAgent(
+    agent = MPCAgent(
         encoder=encoder,
         dynamics_model=dynamics_model,
         cost_model=cost_model,
