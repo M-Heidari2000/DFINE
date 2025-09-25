@@ -24,7 +24,7 @@ if __name__ == "__main__":
         model = PPO(policy="MlpPolicy", env=orig_env, device="cpu", verbose=True)
         model.learn(total_timesteps=args.num_ppo_steps)
 
-    env = DataCollector(env=orig_env, record_infos=True)
+    env = DataCollector(env=orig_env)
     for _ in tqdm(range(args.num_episodes)):
         obs, info = env.reset()
         done = False
