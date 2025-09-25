@@ -199,8 +199,6 @@ class Dynamics(nn.Module):
         r = self.r_head(hidden)
         I = torch.eye(self.x_dim, device=x.device).expand([b, -1, -1])
         A = I + torch.einsum('bi,bj->bij', v, r)
-        scale = 1.0 + v.norm(dim=1) * r.norm(dim=1)
-        A = A / scale.view(-1, 1, 1)
         B = self.B_head(hidden).reshape(b, self.x_dim, self.u_dim)
         C = self.C_head(hidden).reshape(b, self.a_dim, self.x_dim)
         Nx = torch.diag_embed(nn.functional.softplus(self.nx_head(hidden)) + self._min_var)
