@@ -161,14 +161,9 @@ class Dynamics(nn.Module):
             nn.Dropout(p=dropout_p),
         )
 
-        self.r_head = nn.Sequential(
-            nn.Linear(hidden_dim, x_dim),
-            nn.Tanh(),
-        )
-        self.v_head = nn.Sequential(
-            nn.Linear(hidden_dim, x_dim),
-            nn.Tanh(),
-        )
+        self.r = nn.Parameter(torch.randn((x_dim, 1)))
+        self.v = nn.Parameter(torch.randn((x_dim, 1)))
+
         self.B_head = nn.Linear(hidden_dim, x_dim * u_dim)
         self.C_head = nn.Linear(hidden_dim, a_dim * x_dim)
         self.nx_head = nn.Linear(hidden_dim, x_dim)
@@ -195,10 +190,10 @@ class Dynamics(nn.Module):
         """
         b = x.shape[0]
         hidden = self.backbone(x)
-        v = self.v_head(hidden)
-        r = self.r_head(hidden)
+        v = self.v.tanh()
+        r = self.r.tanh()
         I = torch.eye(self.x_dim, device=x.device).expand([b, -1, -1])
-        A = I + torch.einsum('bi,bj->bij', v, r)
+        A = I + (v @ r.T).expand([b, -1, -1])
         B = self.B_head(hidden).reshape(b, self.x_dim, self.u_dim)
         C = self.C_head(hidden).reshape(b, self.a_dim, self.x_dim)
         Nx = torch.diag_embed(nn.functional.softplus(self.nx_head(hidden)) + self._min_var)
