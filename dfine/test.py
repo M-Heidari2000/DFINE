@@ -102,3 +102,45 @@ def test_prediction(
             pred_y[t-F] = decoder(pred_a)
 
         return pred_y
+    
+
+def test_A_changes(
+    args: Namespace,
+    encoder: Encoder,
+    dynamics_model: Dynamics,
+    y: torch.Tensor,
+    u: torch.Tensor,
+):
+    with torch.no_grad():
+        
+        F = y.shape[0]
+        B = y.shape[1]
+        T = u.shape[0]
+
+        assert F == T+1, "the input sequence (u) must be at least the same length as the observation sequence (y)" 
+
+        a = encoder(einops.rearrange(y, "l b y -> (l b) y"))
+        a = einops.rearrange(a, "(l b) a -> l b a", b=B)
+
+        # initial belief over x0: N(0, I)
+        mean = torch.zeros((B, args.x_dim), device=y.device)
+        cov = torch.eye(args.x_dim, args.x_dim, device=y.device).repeat([B, 1, 1])
+
+        singular_values = torch.zeros((F-1, B, args.x_dim), device=y.device)
+
+        for t in range(1, F):
+            mean, cov = dynamics_model.dynamics_update(
+                mean=mean,
+                cov=cov,
+                u=u[t-1],
+            )
+            mean, cov = dynamics_model.measurement_update(
+                mean=mean,
+                cov=cov,
+                a=a[t],
+            )
+            A, _, _, _, _ = dynamics_model.get_dynamics(x=mean)
+            _, S, _ = A.svd()
+            singular_values[t-1] = S
+
+        return singular_values
