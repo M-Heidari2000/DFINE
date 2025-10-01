@@ -255,11 +255,11 @@ def train_cost(
     wandb.watch([cost_model], log="all", log_freq=10)
 
     all_params = list(cost_model.parameters())
-    optimizer = torch.optim.Adam(all_params, lr=args.lr, eps=args.eps)
+    optimizer = torch.optim.Adam(all_params, lr=args.cost_lr, eps=args.eps)
 
     # train and test loop
     print("training ...")
-    for update in tqdm(range(2*args.num_updates)):    
+    for update in tqdm(range(args.num_cost_updates)):    
         # train
         cost_model.train()
 

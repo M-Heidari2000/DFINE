@@ -3,6 +3,8 @@ import wandb
 import einops
 import numpy as np
 import gymnasium as gym
+import matplotlib.pyplot as plt
+import seaborn as sns
 from argparse import Namespace
 from tqdm import tqdm
 from .agents import MPCAgent
@@ -52,7 +54,14 @@ def test(
                 total_reward += reward
             rewards.append(total_reward)
 
-    wandb.log({"rewards": wandb.Histogram(rewards)})
+        fig, ax = plt.subplots(figsize=(8, 6))
+        sns.histplot(rewards, bins=20, kde=True, ax=ax, color='teal')
+        ax.set_title("distribution of test rewards")
+        ax.set_xlabel("cumulative reward per episode")
+        ax.set_ylabel("count")
+
+        wandb.log({"test reward distribution": wandb.Image(fig)})
+        plt.close(fig)
 
 
 def test_prediction(
