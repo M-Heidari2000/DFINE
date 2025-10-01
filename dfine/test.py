@@ -5,7 +5,7 @@ import numpy as np
 import gymnasium as gym
 from argparse import Namespace
 from tqdm import tqdm
-from .agents import ILQRAgent
+from .agents import MPCAgent
 from .models import (
     Encoder,
     Dynamics,
@@ -27,7 +27,7 @@ def test(
     cost_model.eval()
 
     # agent
-    agent = ILQRAgent(
+    agent = MPCAgent(
         encoder=encoder,
         dynamics_model=dynamics_model,
         cost_model=cost_model,
@@ -45,7 +45,7 @@ def test(
             total_reward = 0.0
             while not done:
                 planned_actions = agent(y=obs, u=action, explore=False)
-                action = planned_actions[0]
+                action = planned_actions[0].flatten()
                 next_obs, reward, terminated, truncated, _ = env.step(action=action)
                 done = terminated or truncated
                 obs = next_obs

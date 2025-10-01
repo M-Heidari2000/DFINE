@@ -44,6 +44,8 @@ if __name__ == "__main__":
     parser.add_argument("--num-test-episodes", type=int, default=10, help="number of test episodes")
     parser.add_argument("--planning-horizon", type=int, default=12, help="planning horizon for iLQR")
     parser.add_argument("--action-noise-std", type=float, default=0.3, help="action noise for exploration")
+    parser.add_argument("--notes", type=str, default="", help="extra notes to add to the run")
+    parser.add_argument("--run-name", type=str, default="DFINE", help="name of the run")
 
     args = parser.parse_args()
 
@@ -57,6 +59,7 @@ if __name__ == "__main__":
         project="Controlling from high-dimensional observations",
         name="DFINE",
         config=vars(args),
+        notes=args.notes,
     )
 
     wandb.define_metric("global_step")

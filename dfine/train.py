@@ -259,7 +259,7 @@ def train_cost(
 
     # train and test loop
     print("training ...")
-    for update in tqdm(range(args.num_updates)):    
+    for update in tqdm(range(2*args.num_updates)):    
         # train
         cost_model.train()
 
