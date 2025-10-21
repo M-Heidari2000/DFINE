@@ -33,7 +33,7 @@ if __name__ == "__main__":
     parser.add_argument("--x-dim", type=int, default=30, help="x(state) dimension")
     parser.add_argument("--a-dim", type=int, default=100, help="a(intermediate state) dimension")
     parser.add_argument("--hidden-dim", type=int, default=128, help="hidden layer dimension for encoder and decoder")
-    parser.add_argument("--min-var", type=float, default=0.01, help="minimum var for states")
+    parser.add_argument("--min-var", type=float, default=1e-3, help="minimum var for states")
     parser.add_argument("--dropout-p", type=float, default=0.4, help="dropout ratio for encoder and decoder")
     parser.add_argument("--chunk-length", type=int, default=50, help="length of chunks used for the update step")
     parser.add_argument("--prediction-k", type=int, default=24, help="number of future steps prediction")
@@ -41,6 +41,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
     parser.add_argument("--cost-lr", type=float, default=1e-4, help="learning rate of the cost model")
     parser.add_argument("--eps", type=float, default=1e-8, help="epsilon for optimizer")
+    parser.add_argument("--weight-decay", type=float, default=1e-4, help="weight decay of the optimizer")
     parser.add_argument("--clip-grad-norm", type=float, default=1000.0, help="clip gradients to this value")
     parser.add_argument("--disable-gpu", action="store_true", default=False, help="disable using gpu")
     parser.add_argument("--num-test-episodes", type=int, default=10, help="number of test episodes")
@@ -65,7 +66,7 @@ if __name__ == "__main__":
     )
 
     wandb.define_metric("global_step")
-    wandb.define_metric("*",step_metric="global_step")
+    wandb.define_metric("*", step_metric="global_step")
 
     # set seed
     np.random.seed(args.seed)

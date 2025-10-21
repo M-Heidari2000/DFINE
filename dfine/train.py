@@ -54,7 +54,7 @@ def train_backbone(
         list(dynamics_model.parameters())
     )
 
-    optimizer = torch.optim.Adam(all_params, lr=args.lr, eps=args.eps)
+    optimizer = torch.optim.Adam(all_params, lr=args.lr, eps=args.eps, weight_decay=args.weight_decay)
 
     # train and test loop
     print("training ...")
@@ -255,7 +255,7 @@ def train_cost(
     wandb.watch([cost_model], log="all", log_freq=10)
 
     all_params = list(cost_model.parameters())
-    optimizer = torch.optim.Adam(all_params, lr=args.cost_lr, eps=args.eps)
+    optimizer = torch.optim.Adam(all_params, lr=args.cost_lr, eps=args.eps, weight_decay=args.weight_decay)
 
     # train and test loop
     print("training ...")
