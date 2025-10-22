@@ -174,6 +174,12 @@ class MPCAgent:
         self.mean = torch.zeros((1, self.dynamics_model.x_dim), device=self.device)
         self.cov = torch.eye(self.dynamics_model.x_dim, device=self.device).unsqueeze(0)
 
+        self.reference_actions = torch.zeros(
+            (self.planning_horizon, 1, self.dynamics_model.u_dim),
+            device=self.device,
+            dtype=torch.float32,
+        )
+
     def __call__(self, y, u, explore: bool=False):
         """
         inputs: y_t, u_{t-1}
@@ -205,11 +211,7 @@ class MPCAgent:
                 a=a,
             )
 
-            planned_actions = torch.zeros(
-                (self.planning_horizon, self.dynamics_model.u_dim),
-                device=self.device,
-                dtype=torch.float32,
-            )
+            planned_actions = self.reference_actions.clone()
 
             for _ in range(self.num_iterations + 1):
                 state = self.mean
@@ -230,6 +232,9 @@ class MPCAgent:
 
             if explore:
                 planned_actions += self.action_noise * torch.randn_like(planned_actions)
+
+            self.reference_actions[:-1] = planned_actions[1:].detach()
+            self.reference_actions[-1].zero_()
 
         return np.clip(planned_actions.cpu().numpy(), a_min=-1.0, a_max=1.0)
     
@@ -277,3 +282,9 @@ class MPCAgent:
     def reset(self):
         self.mean = torch.zeros((1, self.dynamics_model.x_dim), device=self.device)
         self.cov = torch.eye(self.dynamics_model.x_dim, device=self.device).unsqueeze(0)
+
+        self.reference_actions = torch.zeros(
+            (self.planning_horizon, 1, self.dynamics_model.u_dim),
+            device=self.device,
+            dtype=torch.float32,
+        )
