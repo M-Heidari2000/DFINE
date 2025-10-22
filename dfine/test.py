@@ -73,6 +73,10 @@ def test_prediction(
     u: torch.Tensor,
 ):
     with torch.no_grad():
+
+        encoder.eval()
+        decoder.eval()
+        dynamics_model.eval()
         
         F = y.shape[0]
         B = y.shape[1]
@@ -121,6 +125,9 @@ def test_A_changes(
     u: torch.Tensor,
 ):
     with torch.no_grad():
+
+        encoder.eval()
+        dynamics_model.eval()
         
         F = y.shape[0]
         B = y.shape[1]
