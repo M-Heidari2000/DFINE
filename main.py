@@ -22,7 +22,6 @@ def generate_id():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DFINE")
     parser.add_argument("--seed", type=int, default=1, help="random seed")
-    parser.add_argument("--action-repeat", type=int, default=2, help="action repeat")
     parser.add_argument("--log-dir", type=str, default="log", help="logging directory")
     parser.add_argument("--run-id", type=str, default=generate_id(), help="id associated with this run")
     parser.add_argument("--dataset", type=str, default="classic-control/pendulum/medium-v0", help="name of the minari dataset")
@@ -33,7 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("--x-dim", type=int, default=30, help="x(state) dimension")
     parser.add_argument("--a-dim", type=int, default=100, help="a(intermediate state) dimension")
     parser.add_argument("--hidden-dim", type=int, default=128, help="hidden layer dimension for encoder and decoder")
-    parser.add_argument("--min-var", type=float, default=1e-3, help="minimum var for states")
+    parser.add_argument("--min-var", type=float, default=1e-2, help="minimum var for states")
     parser.add_argument("--dropout-p", type=float, default=0.4, help="dropout ratio for encoder and decoder")
     parser.add_argument("--chunk-length", type=int, default=50, help="length of chunks used for the update step")
     parser.add_argument("--prediction-k", type=int, default=24, help="number of future steps prediction")
