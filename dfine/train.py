@@ -122,7 +122,7 @@ def train_backbone(
         y_pred_loss /= (args.chunk_length - args.prediction_k - 1)
 
         # y filter loss
-        y_filter_loss /= (args.chunk_length - 1)
+        y_filter_loss /= (args.chunk_length - args.prediction_k - 1)
 
         total_loss = y_pred_loss + y_filter_loss
 
@@ -203,7 +203,7 @@ def train_backbone(
                 y_pred_loss /= (args.chunk_length - args.prediction_k - 1)
 
                 # y filter loss
-                y_filter_loss /= (args.chunk_length - 1)
+                y_filter_loss /= (args.chunk_length - args.prediction_k - 1)
 
                 total_loss = y_pred_loss + y_filter_loss
 
