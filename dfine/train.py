@@ -124,7 +124,13 @@ def train_backbone(
         # y filter loss
         y_filter_loss /= (args.chunk_length - args.prediction_k - 1)
 
-        total_loss = y_pred_loss + y_filter_loss
+        # autoencoder loss
+        a_flatten = einops.rearrange(a, "l b a -> (l b) a")
+        y_flatten = einops.rearrange(y, "l b y -> (l b) y")
+        y_recon = decoder(a_flatten)
+        ae_loss = nn.MSELoss()(y_recon, y_flatten)
+
+        total_loss = y_pred_loss + y_filter_loss + args.ae_weight * ae_loss
 
         optimizer.zero_grad()
         total_loss.backward()
@@ -135,6 +141,7 @@ def train_backbone(
         wandb.log({
             "train/y prediction loss": y_pred_loss.item(),
             "train/y filter loss": y_filter_loss.item(),
+            "train/ae loss": ae_loss.item(),
             "train/total loss": total_loss.item(),
             "global_step": update,
         })
@@ -205,11 +212,18 @@ def train_backbone(
                 # y filter loss
                 y_filter_loss /= (args.chunk_length - args.prediction_k - 1)
 
-                total_loss = y_pred_loss + y_filter_loss
+                # autoencoder loss
+                a_flatten = einops.rearrange(a, "l b a -> (l b) a")
+                y_flatten = einops.rearrange(y, "l b y -> (l b) y")
+                y_recon = decoder(a_flatten)
+                ae_loss = nn.MSELoss()(y_recon, y_flatten)
+
+                total_loss = y_pred_loss + y_filter_loss + args.ae_weight * ae_loss
 
                 wandb.log({
                     "test/y prediction loss": y_pred_loss.item(),
                     "test/y filter loss": y_filter_loss.item(),
+                    "test/ae loss": ae_loss.item(),
                     "test/total loss": total_loss.item(),
                     "global_step": update,
                 })
