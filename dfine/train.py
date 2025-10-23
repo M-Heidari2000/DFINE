@@ -84,6 +84,7 @@ def train_backbone(
 
         y_pred_loss = 0.0
         y_filter_loss = 0.0
+        consistency_loss = 0.0
 
         for t in range(1, args.chunk_length - args.prediction_k):
             mean, cov = dynamics_model.dynamics_update(
@@ -91,11 +92,15 @@ def train_backbone(
                 cov=cov,
                 u=u[t-1],
             )
+            mean_prior = mean
             mean, cov = dynamics_model.measurement_update(
                 mean=mean,
                 cov=cov,
                 a=a[t],
             )
+            mean_posterior = mean
+            consistency = (mean_prior - mean_posterior).norm(dim=1, p=2) / (mean_prior.norm(dim=1, p=2) + 1e-6)
+            consistency_loss += consistency.mean()
             filter_a = dynamics_model.get_a(mean)
             y_filter_loss += nn.MSELoss()(decoder(filter_a), y[t])
 
@@ -124,7 +129,21 @@ def train_backbone(
         # y filter loss
         y_filter_loss /= (args.chunk_length - args.prediction_k - 1)
 
-        total_loss = y_pred_loss + y_filter_loss
+        # autoencoder loss
+        a_flatten = einops.rearrange(a, "l b a -> (l b) a")
+        y_flatten = einops.rearrange(y, "l b y -> (l b) y")
+        y_recon = decoder(a_flatten)
+        ae_loss = nn.MSELoss()(y_recon, y_flatten)
+
+        # consistency loss
+        consistency_loss /= (args.chunk_length - args.prediction_k - 1)
+
+        total_loss = (
+            y_pred_loss +
+            y_filter_loss +
+            args.ae_weight * ae_loss +
+            args.consistency_weight * consistency_loss
+        )
 
         optimizer.zero_grad()
         total_loss.backward()
@@ -135,7 +154,9 @@ def train_backbone(
         wandb.log({
             "train/y prediction loss": y_pred_loss.item(),
             "train/y filter loss": y_filter_loss.item(),
+            "train/ae loss": ae_loss.item(),
             "train/total loss": total_loss.item(),
+            "train/consistency loss": consistency_loss.item(),
             "global_step": update,
         })
             
@@ -165,6 +186,7 @@ def train_backbone(
 
                 y_pred_loss = 0.0
                 y_filter_loss = 0.0
+                consistency_loss = 0.0
 
                 for t in range(1, args.chunk_length - args.prediction_k):
                     mean, cov = dynamics_model.dynamics_update(
@@ -172,11 +194,15 @@ def train_backbone(
                         cov=cov,
                         u=u[t-1],
                     )
+                    mean_prior = mean
                     mean, cov = dynamics_model.measurement_update(
                         mean=mean,
                         cov=cov,
                         a=a[t],
                     )
+                    mean_posterior = mean
+                    consistency = (mean_prior - mean_posterior).norm(dim=1, p=2) / (mean_prior.norm(dim=1, p=2) + 1e-6)
+                    consistency_loss += consistency.mean()
                     filter_a = dynamics_model.get_a(mean)
                     y_filter_loss += nn.MSELoss()(decoder(filter_a), y[t])
 
@@ -205,12 +231,28 @@ def train_backbone(
                 # y filter loss
                 y_filter_loss /= (args.chunk_length - args.prediction_k - 1)
 
-                total_loss = y_pred_loss + y_filter_loss
+                # autoencoder loss
+                a_flatten = einops.rearrange(a, "l b a -> (l b) a")
+                y_flatten = einops.rearrange(y, "l b y -> (l b) y")
+                y_recon = decoder(a_flatten)
+                ae_loss = nn.MSELoss()(y_recon, y_flatten)
+
+                # consistency loss
+                consistency_loss /= (args.chunk_length - args.prediction_k - 1)
+
+                total_loss = (
+                    y_pred_loss +
+                    y_filter_loss +
+                    args.ae_weight * ae_loss +
+                    args.consistency_weight * consistency_loss
+                )
 
                 wandb.log({
                     "test/y prediction loss": y_pred_loss.item(),
                     "test/y filter loss": y_filter_loss.item(),
+                    "test/ae loss": ae_loss.item(),
                     "test/total loss": total_loss.item(),
+                    "test/consistency loss": consistency_loss.item(),
                     "global_step": update,
                 })
 
