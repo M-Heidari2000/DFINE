@@ -161,21 +161,11 @@ class Dynamics(nn.Module):
             nn.Dropout(p=dropout_p),
         )
 
-        self.A_head = nn.Linear(hidden_dim, x_dim * x_dim)
-        self.B_head = nn.Linear(hidden_dim, x_dim * u_dim)
-        self.C_head = nn.Linear(hidden_dim, a_dim * x_dim)
-        self.nx_head = nn.Linear(hidden_dim, x_dim)
-        self.na_head = nn.Linear(hidden_dim, a_dim)
-        self.alpha = nn.Parameter(torch.tensor([1e-2]))
-
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.backbone.modules():
-            if isinstance(m, nn.Linear):
-                init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
-                if m.bias is not None:
-                    init.zeros_(m.bias)
+        self.A = nn.Parameter(torch.randn(x_dim, x_dim))
+        self.B = nn.Parameter(torch.randn(x_dim, u_dim))
+        self.C = nn.Parameter(torch.randn(a_dim, x_dim))
+        self.nx = nn.Parameter(torch.randn(x_dim))
+        self.na = nn.Parameter(torch.randn(a_dim))
 
     def make_psd(self, P, eps=1e-6):
         b = P.shape[0]
@@ -188,13 +178,11 @@ class Dynamics(nn.Module):
             get dynamics matrices depending on the state x
         """
         b = x.shape[0]
-        hidden = self.backbone(x)
-        I = torch.eye(self.x_dim, device=x.device).expand([b, -1, -1])
-        A = I + self.alpha * self.A_head(hidden).reshape(b, self.x_dim, self.x_dim)
-        B = self.B_head(hidden).reshape(b, self.x_dim, self.u_dim)
-        C = self.C_head(hidden).reshape(b, self.a_dim, self.x_dim)
-        Nx = torch.diag_embed(nn.functional.softplus(self.nx_head(hidden)) + self._min_var)
-        Na = torch.diag_embed(nn.functional.softplus(self.na_head(hidden)) + self._min_var)
+        A = self.A.expand(b, -1, -1)
+        B = self.B.expand(b, -1, -1)
+        C = self.C.expand(b, -1, -1)
+        Nx = torch.diag_embed(nn.functional.softplus(self.nx) + self._min_var).expand(b, -1, -1)
+        Na = torch.diag_embed(nn.functional.softplus(self.na) + self._min_var).expand(b, -1, -1)
 
         return A, B, C, Nx, Na
     
