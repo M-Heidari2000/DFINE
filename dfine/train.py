@@ -59,7 +59,7 @@ def train_backbone(
     optimizer = torch.optim.Adam(all_params, lr=args.lr, eps=args.eps, weight_decay=args.weight_decay)
 
     # train and test loop
-    print("training ...")
+    print(f"training on {device} ...")
     for update in tqdm(range(args.num_updates)):
         
         # train
@@ -310,7 +310,7 @@ def train_cost(
     optimizer = torch.optim.Adam(all_params, lr=args.cost_lr, eps=args.eps, weight_decay=args.weight_decay)
 
     # train and test loop
-    print("training ...")
+    print(f"training on {device} ...")
     for update in tqdm(range(args.num_cost_updates)):    
         # train
         cost_model.train()
