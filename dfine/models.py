@@ -161,7 +161,7 @@ class Dynamics(nn.Module):
             nn.Dropout(p=dropout_p),
         )
 
-        self.A = nn.Parameter(torch.randn(x_dim, x_dim))
+        self.A = nn.Parameter(torch.eye(x_dim))
         self.B = nn.Parameter(torch.randn(x_dim, u_dim))
         self.C = nn.Parameter(torch.randn(a_dim, x_dim))
         self.nx = nn.Parameter(torch.randn(x_dim))
