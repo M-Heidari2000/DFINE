@@ -104,7 +104,7 @@ def train_backbone(
             if args.consistency_mode == "mean":
                 consistency = (prior - posterior).norm(dim=1, p=2) / (prior.norm(dim=1, p=2) + 1e-6)
             else:
-                consistency = kl_divergence(posterior, prior).mean()
+                consistency = kl_divergence(posterior, prior)
 
             consistency_loss += consistency.mean()
             filter_a = dynamics_model.get_a(mean)
@@ -210,7 +210,8 @@ def train_backbone(
                     if args.consistency_mode == "mean":
                         consistency = (prior - posterior).norm(dim=1, p=2) / (prior.norm(dim=1, p=2) + 1e-6)
                     else:
-                        consistency = kl_divergence(posterior, prior).mean()
+                        consistency = kl_divergence(posterior, prior)
+                        
                     consistency_loss += consistency.mean()
                     filter_a = dynamics_model.get_a(mean)
                     y_filter_loss += nn.MSELoss()(decoder(filter_a), y[t])
