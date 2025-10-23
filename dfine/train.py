@@ -5,6 +5,8 @@ import torch.nn as nn
 from tqdm import tqdm
 from pathlib import Path
 from argparse import Namespace
+from torch.distributions import MultivariateNormal
+from torch.distributions import kl_divergence
 from .memory import ReplayBuffer
 from torch.nn.utils import clip_grad_norm_
 from .models import (
@@ -92,14 +94,18 @@ def train_backbone(
                 cov=cov,
                 u=u[t-1],
             )
-            mean_prior = mean
+            prior = mean if args.consistency_mode == "mean" else MultivariateNormal(loc=mean, covariance_matrix=cov)
             mean, cov = dynamics_model.measurement_update(
                 mean=mean,
                 cov=cov,
                 a=a[t],
             )
-            mean_posterior = mean
-            consistency = (mean_prior - mean_posterior).norm(dim=1, p=2) / (mean_prior.norm(dim=1, p=2) + 1e-6)
+            posterior = mean if args.consistency_mode == "mean" else MultivariateNormal(loc=mean, covariance_matrix=cov)
+            if args.consistency_mode == "mean":
+                consistency = (prior - posterior).norm(dim=1, p=2) / (prior.norm(dim=1, p=2) + 1e-6)
+            else:
+                consistency = kl_divergence(posterior, prior).mean()
+
             consistency_loss += consistency.mean()
             filter_a = dynamics_model.get_a(mean)
             y_filter_loss += nn.MSELoss()(decoder(filter_a), y[t])
@@ -194,14 +200,17 @@ def train_backbone(
                         cov=cov,
                         u=u[t-1],
                     )
-                    mean_prior = mean
+                    prior = mean if args.consistency_mode == "mean" else MultivariateNormal(loc=mean, covariance_matrix=cov)
                     mean, cov = dynamics_model.measurement_update(
                         mean=mean,
                         cov=cov,
                         a=a[t],
                     )
-                    mean_posterior = mean
-                    consistency = (mean_prior - mean_posterior).norm(dim=1, p=2) / (mean_prior.norm(dim=1, p=2) + 1e-6)
+                    posterior = mean if args.consistency_mode == "mean" else MultivariateNormal(loc=mean, covariance_matrix=cov)
+                    if args.consistency_mode == "mean":
+                        consistency = (prior - posterior).norm(dim=1, p=2) / (prior.norm(dim=1, p=2) + 1e-6)
+                    else:
+                        consistency = kl_divergence(posterior, prior).mean()
                     consistency_loss += consistency.mean()
                     filter_a = dynamics_model.get_a(mean)
                     y_filter_loss += nn.MSELoss()(decoder(filter_a), y[t])
