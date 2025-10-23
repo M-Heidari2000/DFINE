@@ -49,6 +49,7 @@ if __name__ == "__main__":
     parser.add_argument("--notes", type=str, default="", help="extra notes to add to the run")
     parser.add_argument("--run-name", type=str, default="DFINE", help="name of the run")
     parser.add_argument("--ae-weight", type=float, default=1.0, help="autoencoder loss weight")
+    parser.add_argument("--consistency-weight", type=float, default=1.0, help="consistency in dynamic transition loss weight")
 
     args = parser.parse_args()
 
