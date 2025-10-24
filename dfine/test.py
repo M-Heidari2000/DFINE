@@ -46,6 +46,7 @@ def test(
             done = False
             total_reward = 0.0
             while not done:
+                obs = obs.astype(np.float32)
                 planned_actions = agent(y=obs, u=action, explore=False)
                 action = planned_actions[0].flatten()
                 next_obs, reward, terminated, truncated, _ = env.step(action=action)
