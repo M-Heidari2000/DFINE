@@ -3,6 +3,7 @@ import wandb
 import einops
 import numpy as np
 import gymnasium as gym
+from typing import Optional
 import matplotlib.pyplot as plt
 import seaborn as sns
 from argparse import Namespace
@@ -161,3 +162,62 @@ def test_A_changes(
             singular_values[t-1] = S
 
         return singular_values
+
+
+def test_k_step_prediction(
+    args: Namespace,
+    encoder: Encoder,
+    decoder: Decoder,
+    dynamics_model: Dynamics,
+    y: torch.Tensor,
+    u: torch.Tensor,
+    prediction_k: Optional[int]=None,
+):
+    if prediction_k is None:
+        prediction_k = args.prediction_k
+
+    with torch.no_grad():
+
+        encoder.eval()
+        decoder.eval()
+        dynamics_model.eval()
+
+        L, B, y_dim = y.shape
+
+        a = encoder(einops.rearrange(y, "l b y -> (l b) y"))
+        a = einops.rearrange(a, "(l b) a -> l b a", b=B)
+
+        y_pred = torch.zeros(
+            (L - prediction_k - 1, B, y_dim),
+            device=y.device,
+        )
+
+        # initial belief over x0: N(0, I)
+        mean = torch.zeros((B, args.x_dim), device=y.device)
+        cov = torch.eye(args.x_dim, device=y.device).repeat([B, 1, 1])
+
+        for t in range(1, L - prediction_k):
+            mean, cov = dynamics_model.dynamics_update(
+                mean=mean,
+                cov=cov,
+                u=u[t-1],
+            )
+            mean, cov = dynamics_model.measurement_update(
+                mean=mean,
+                cov=cov,
+                a=a[t],
+            )
+                
+            pred_mean = mean
+            pred_cov = cov
+
+            for k in range(prediction_k):
+                pred_mean, pred_cov = dynamics_model.dynamics_update(
+                    mean=pred_mean,
+                    cov=pred_cov,
+                    u=u[t+k]
+                )
+            pred_a = dynamics_model.get_a(pred_mean)
+            y_pred[t-1] = decoder(pred_a)
+            
+        return y_pred
