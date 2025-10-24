@@ -84,11 +84,10 @@ def train_backbone(
         mean = torch.zeros((args.batch_size, args.x_dim), device=device)
         cov = torch.eye(args.x_dim, device=device).repeat([args.batch_size, 1, 1])
 
-        y_pred_loss = 0.0
         y_filter_loss = 0.0
         consistency_loss = 0.0
 
-        for t in range(1, args.chunk_length - args.prediction_k):
+        for t in range(1, args.chunk_length):
             mean, cov = dynamics_model.dynamics_update(
                 mean=mean,
                 cov=cov,
@@ -110,30 +109,8 @@ def train_backbone(
             filter_a = dynamics_model.get_a(mean)
             y_filter_loss += nn.MSELoss()(decoder(filter_a), y[t])
 
-            # tensors to hold predictions of future ys
-            pred_y = torch.zeros((args.prediction_k, args.batch_size, train_buffer.y_dim), device=device)
-
-            pred_mean = mean
-            pred_cov = cov
-
-            for k in range(args.prediction_k):
-                pred_mean, pred_cov = dynamics_model.dynamics_update(
-                    mean=pred_mean,
-                    cov=pred_cov,
-                    u=u[t+k]
-                )
-                pred_a = dynamics_model.get_a(pred_mean)
-                pred_y[k] = decoder(pred_a)
-
-            true_y = y[t+1: t+1+args.prediction_k]
-            true_y_flatten = einops.rearrange(true_y, "k b y -> (k b) y")
-            pred_y_flatten = einops.rearrange(pred_y, "k b y -> (k b) y")
-            y_pred_loss += nn.MSELoss()(pred_y_flatten, true_y_flatten)
-
-        y_pred_loss /= (args.chunk_length - args.prediction_k - 1)
-
         # y filter loss
-        y_filter_loss /= (args.chunk_length - args.prediction_k - 1)
+        y_filter_loss /= (args.chunk_length - 1)
 
         # autoencoder loss
         a_flatten = einops.rearrange(a, "l b a -> (l b) a")
@@ -142,10 +119,9 @@ def train_backbone(
         ae_loss = nn.MSELoss()(y_recon, y_flatten)
 
         # consistency loss
-        consistency_loss /= (args.chunk_length - args.prediction_k - 1)
+        consistency_loss /= (args.chunk_length - 1)
 
         total_loss = (
-            y_pred_loss +
             y_filter_loss +
             args.ae_weight * ae_loss +
             args.consistency_weight * consistency_loss
@@ -158,7 +134,6 @@ def train_backbone(
         optimizer.step()
 
         wandb.log({
-            "train/y prediction loss": y_pred_loss.item(),
             "train/y filter loss": y_filter_loss.item(),
             "train/ae loss": ae_loss.item(),
             "train/total loss": total_loss.item(),
@@ -190,11 +165,10 @@ def train_backbone(
                 mean = torch.zeros((args.batch_size, args.x_dim), device=device)
                 cov = torch.eye(args.x_dim, device=device).repeat([args.batch_size, 1, 1])
 
-                y_pred_loss = 0.0
                 y_filter_loss = 0.0
                 consistency_loss = 0.0
 
-                for t in range(1, args.chunk_length - args.prediction_k):
+                for t in range(1, args.chunk_length):
                     mean, cov = dynamics_model.dynamics_update(
                         mean=mean,
                         cov=cov,
@@ -211,35 +185,13 @@ def train_backbone(
                         consistency = (prior - posterior).norm(dim=1, p=2) / (prior.norm(dim=1, p=2) + 1e-6)
                     else:
                         consistency = kl_divergence(posterior, prior)
-                        
+
                     consistency_loss += consistency.mean()
                     filter_a = dynamics_model.get_a(mean)
                     y_filter_loss += nn.MSELoss()(decoder(filter_a), y[t])
 
-                    # tensors to hold predictions of future ys
-                    pred_y = torch.zeros((args.prediction_k, args.batch_size, test_buffer.y_dim), device=device)
-
-                    pred_mean = mean
-                    pred_cov = cov
-
-                    for k in range(args.prediction_k):
-                        pred_mean, pred_cov = dynamics_model.dynamics_update(
-                            mean=pred_mean,
-                            cov=pred_cov,
-                            u=u[t+k]
-                        )
-                        pred_a = dynamics_model.get_a(pred_mean)
-                        pred_y[k] = decoder(pred_a)
-
-                    true_y = y[t+1: t+1+args.prediction_k]
-                    true_y_flatten = einops.rearrange(true_y, "k b y -> (k b) y")
-                    pred_y_flatten = einops.rearrange(pred_y, "k b y -> (k b) y")
-                    y_pred_loss += nn.MSELoss()(pred_y_flatten, true_y_flatten)
-
-                y_pred_loss /= (args.chunk_length - args.prediction_k - 1)
-
                 # y filter loss
-                y_filter_loss /= (args.chunk_length - args.prediction_k - 1)
+                y_filter_loss /= (args.chunk_length - 1)
 
                 # autoencoder loss
                 a_flatten = einops.rearrange(a, "l b a -> (l b) a")
@@ -248,17 +200,15 @@ def train_backbone(
                 ae_loss = nn.MSELoss()(y_recon, y_flatten)
 
                 # consistency loss
-                consistency_loss /= (args.chunk_length - args.prediction_k - 1)
+                consistency_loss /= (args.chunk_length - 1)
 
                 total_loss = (
-                    y_pred_loss +
                     y_filter_loss +
                     args.ae_weight * ae_loss +
                     args.consistency_weight * consistency_loss
                 )
 
                 wandb.log({
-                    "test/y prediction loss": y_pred_loss.item(),
                     "test/y filter loss": y_filter_loss.item(),
                     "test/ae loss": ae_loss.item(),
                     "test/total loss": total_loss.item(),
