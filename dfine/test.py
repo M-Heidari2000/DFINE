@@ -193,7 +193,7 @@ def test_k_step_prediction(
 
         # initial belief over x0: N(0, I)
         mean = torch.zeros((B, args.x_dim), device=y.device)
-        cov = torch.eye(args.x_dim, device=y.device).repeat([B, 1, 1])
+        cov = torch.eye(args.x_dim, device=y.device).expand(B, -1, -1)
 
         for t in range(1, L - prediction_k):
             mean, cov = dynamics_model.dynamics_update(
