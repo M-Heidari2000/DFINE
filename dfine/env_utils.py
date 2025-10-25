@@ -86,7 +86,6 @@ def make_env(
         task_kwargs={"random": seed}
     )
     env = pixels.Wrapper(env, render_kwargs={"height": 64, "width": 64, "camera_id": 0})
-    env = GymWrapper(env=env)
-    env = RepeatActionWrapper(env=env, skip=action_repeat)
-    env = RescaleAction(env=env, min_action=-1.0, max_action=1.0)
+    env = GymWrapper(env)
+    env = RepeatActionW()
     return env

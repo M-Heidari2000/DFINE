@@ -26,19 +26,9 @@ def train_backbone(
     # define models and optimizer
     device = "cuda" if (torch.cuda.is_available() and not args.disable_gpu) else "cpu"
 
-    encoder = Encoder(
-        y_dim=train_buffer.y_dim,
-        a_dim=args.a_dim,
-        hidden_dim=args.hidden_dim,
-        dropout_p=args.dropout_p,
-    ).to(device)
+    encoder = Encoder(a_dim=args.a_dim).to(device)
 
-    decoder = Decoder(
-        y_dim=train_buffer.y_dim,
-        a_dim=args.a_dim,
-        hidden_dim=args.hidden_dim,
-        dropout_p=args.dropout_p,
-    ).to(device)
+    decoder = Decoder(a_dim=args.a_dim,).to(device)
 
     dynamics_model = Dynamics(
         x_dim=args.x_dim,
@@ -74,8 +64,8 @@ def train_backbone(
 
         # convert to tensor, transform to device, reshape to time-first
         y = torch.as_tensor(y, device=device)
-        y = einops.rearrange(y, "b l y -> l b y")
-        a = encoder(einops.rearrange(y, "l b y -> (l b) y"))
+        y = einops.rearrange(y, "b l c h w -> l b c h w")
+        a = encoder(einops.rearrange(y, "l b c h w -> (l b) c h w"))
         a = einops.rearrange(a, "(l b) a -> l b a", b=args.batch_size)
         u = torch.as_tensor(u, device=device)
         u = einops.rearrange(u, "b l u -> l b u")
@@ -111,7 +101,7 @@ def train_backbone(
             y_filter_loss += nn.MSELoss()(decoder(filter_a), y[t])
 
             # tensors to hold predictions of future ys
-            pred_y = torch.zeros((args.prediction_k, args.batch_size, train_buffer.y_dim), device=device)
+            pred_y = torch.zeros((args.prediction_k, args.batch_size, 3, 64, 64), device=device)
 
             pred_mean = mean
             pred_cov = cov
@@ -126,8 +116,8 @@ def train_backbone(
                 pred_y[k] = decoder(pred_a)
 
             true_y = y[t+1: t+1+args.prediction_k]
-            true_y_flatten = einops.rearrange(true_y, "k b y -> (k b) y")
-            pred_y_flatten = einops.rearrange(pred_y, "k b y -> (k b) y")
+            true_y_flatten = einops.rearrange(true_y, "k b c h w -> (k b) c h w")
+            pred_y_flatten = einops.rearrange(pred_y, "k b c h w -> (k b) c h w")
             y_pred_loss += nn.MSELoss()(pred_y_flatten, true_y_flatten)
 
         y_pred_loss /= (args.chunk_length - args.prediction_k - 1)
@@ -137,7 +127,7 @@ def train_backbone(
 
         # autoencoder loss
         a_flatten = einops.rearrange(a, "l b a -> (l b) a")
-        y_flatten = einops.rearrange(y, "l b y -> (l b) y")
+        y_flatten = einops.rearrange(y, "l b c h w -> (l b) c h w")
         y_recon = decoder(a_flatten)
         ae_loss = nn.MSELoss()(y_recon, y_flatten)
 
@@ -180,8 +170,8 @@ def train_backbone(
 
                 # convert to tensor, transform to device, reshape to time-first
                 y = torch.as_tensor(y, device=device)
-                y = einops.rearrange(y, "b l y -> l b y")
-                a = encoder(einops.rearrange(y, "l b y -> (l b) y"))
+                y = einops.rearrange(y, "b l c h w -> l b c h w")
+                a = encoder(einops.rearrange(y, "l b c h w -> (l b) c h w"))
                 a = einops.rearrange(a, "(l b) a -> l b a", b=args.batch_size)
                 u = torch.as_tensor(u, device=device)
                 u = einops.rearrange(u, "b l u -> l b u")
@@ -211,13 +201,13 @@ def train_backbone(
                         consistency = (prior - posterior).norm(dim=1, p=2) / (prior.norm(dim=1, p=2) + 1e-6)
                     else:
                         consistency = kl_divergence(posterior, prior)
-                        
+
                     consistency_loss += consistency.mean()
                     filter_a = dynamics_model.get_a(mean)
                     y_filter_loss += nn.MSELoss()(decoder(filter_a), y[t])
 
                     # tensors to hold predictions of future ys
-                    pred_y = torch.zeros((args.prediction_k, args.batch_size, test_buffer.y_dim), device=device)
+                    pred_y = torch.zeros((args.prediction_k, args.batch_size, 3, 64, 64), device=device)
 
                     pred_mean = mean
                     pred_cov = cov
@@ -232,8 +222,8 @@ def train_backbone(
                         pred_y[k] = decoder(pred_a)
 
                     true_y = y[t+1: t+1+args.prediction_k]
-                    true_y_flatten = einops.rearrange(true_y, "k b y -> (k b) y")
-                    pred_y_flatten = einops.rearrange(pred_y, "k b y -> (k b) y")
+                    true_y_flatten = einops.rearrange(true_y, "k b c h w -> (k b) c h w")
+                    pred_y_flatten = einops.rearrange(pred_y, "k b c h w -> (k b) c h w")
                     y_pred_loss += nn.MSELoss()(pred_y_flatten, true_y_flatten)
 
                 y_pred_loss /= (args.chunk_length - args.prediction_k - 1)
@@ -243,7 +233,7 @@ def train_backbone(
 
                 # autoencoder loss
                 a_flatten = einops.rearrange(a, "l b a -> (l b) a")
-                y_flatten = einops.rearrange(y, "l b y -> (l b) y")
+                y_flatten = einops.rearrange(y, "l b c h w -> (l b) c h w")
                 y_recon = decoder(a_flatten)
                 ae_loss = nn.MSELoss()(y_recon, y_flatten)
 
@@ -322,8 +312,8 @@ def train_cost(
 
         # convert to tensor, transform to device, reshape to time-first
         y = torch.as_tensor(y, device=device)
-        y = einops.rearrange(y, "b l y -> l b y")
-        a = encoder(einops.rearrange(y, "l b y -> (l b) y"))
+        y = einops.rearrange(y, "b l c h w -> l b c h w")
+        a = encoder(einops.rearrange(y, "l b c h w -> (l b) c h w"))
         a = einops.rearrange(a, "(l b) a -> l b a", b=args.batch_size)
         u = torch.as_tensor(u, device=device)
         u = einops.rearrange(u, "b l u -> l b u")
@@ -374,8 +364,8 @@ def train_cost(
 
                 # convert to tensor, transform to device, reshape to time-first
                 y = torch.as_tensor(y, device=device)
-                y = einops.rearrange(y, "b l y -> l b y")
-                a = encoder(einops.rearrange(y, "l b y -> (l b) y"))
+                y = einops.rearrange(y, "b l c h w -> l b c h w")
+                a = encoder(einops.rearrange(y, "l b c h w -> (l b) c h w"))
                 a = einops.rearrange(a, "(l b) a -> l b a", b=args.batch_size)
                 u = torch.as_tensor(u, device=device)
                 u = einops.rearrange(u, "b l u -> l b u")
