@@ -17,6 +17,18 @@ class ReplayBuffer:
         normalized_obs = reduced_obs / 2**bit_depth - 0.5
         normalized_obs += np.random.uniform(0.0, 1.0 / 2**bit_depth, normalized_obs.shape)
         return normalized_obs
+    
+    @staticmethod
+    def postprocess_obs(proc_obs, bit_depth=5):
+        """
+        Approximate inverse of preprocess_obs:
+        maps normalized float observations in [-0.5, 0.5] back to uint8 images in [0, 255].
+        """
+        restored = (proc_obs + 0.5) * (2 ** bit_depth)
+        restored = np.clip(restored, 0, 2 ** bit_depth - 1)
+        restored = restored * (2 ** (8 - bit_depth))
+        restored = np.round(restored).astype(np.uint8)
+        return restored
 
     def __init__(
         self,
