@@ -1,6 +1,4 @@
-import minari
 import numpy as np
-from tqdm import tqdm
 
 
 class ReplayBuffer:
@@ -9,36 +7,27 @@ class ReplayBuffer:
     """
 
     @staticmethod
-    def load_from_minari(dataset: minari.MinariDataset):
-        buffer = ReplayBuffer(
-            capacity=dataset.total_steps,
-            y_dim=dataset.observation_space.shape[0],
-            u_dim=dataset.action_space.shape[0],
-        )
-        print("loading the dataset ...")
-        for episode in tqdm(dataset):
-            steps = episode.actions.shape[0]
-            for i in range(steps):
-                buffer.push(
-                    y=episode.observations[i],
-                    u=episode.actions[i],
-                    c=-episode.rewards[i],
-                    done=episode.terminations[i] or episode.truncations[i],
-                )
-        return buffer
+    def preprocess_obs(obs, bit_depth=5):
+        """
+        reduces the bit depth of image for the ease of training and converts to [-0.5, 0.5]
+        In addition, add uniform random noise same as original implementation
+        """
+        obs = obs.astype(np.float32)
+        reduced_obs = np.floor(obs / 2 ** (8 - bit_depth))
+        normalized_obs = reduced_obs / 2**bit_depth - 0.5
+        normalized_obs += np.random.uniform(0.0, 1.0 / 2**bit_depth, normalized_obs.shape)
+        return normalized_obs
 
     def __init__(
         self,
         capacity: int,
-        y_dim: int,
         u_dim: int,
     ):
         self.capacity = capacity
 
-        self.y_dim = y_dim
         self.u_dim = u_dim
 
-        self.ys = np.zeros((capacity, y_dim), dtype=np.float32)
+        self.ys = np.zeros((capacity, 3, 64, 64), dtype=np.uint8)
         self.us = np.zeros((capacity, u_dim), dtype=np.float32)
         self.cs = np.zeros((capacity, 1), dtype=np.float32)
         self.done = np.zeros((capacity, 1), dtype=bool)
@@ -86,7 +75,7 @@ class ReplayBuffer:
         ])
 
         sampled_ys = self.ys[sampled_ranges].reshape(
-            batch_size, chunk_length, self.ys.shape[1]
+            batch_size, chunk_length, 3, 64, 64
         )
         sampled_us = self.us[sampled_ranges].reshape(
             batch_size, chunk_length, self.us.shape[1]
