@@ -9,38 +9,25 @@ class Encoder(nn.Module):
         y_t -> a_t
     """
 
-    def __init__(
-        self,
-        a_dim: int,
-        y_dim: int,
-        hidden_dim: Optional[int]=None,
-        dropout_p: float=0.4,
-    ):
+    def __init__(self, a_dim: int):
         super().__init__()
 
-        hidden_dim = hidden_dim if hidden_dim is not None else 2*y_dim
-
-        self.mlp_layers = nn.Sequential(
-            nn.Linear(y_dim, hidden_dim),
+        self.cnn_layers = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.Dropout(p=dropout_p),
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.Dropout(p=dropout_p),
-            nn.Linear(hidden_dim, a_dim),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=4, stride=2),
+            nn.Flatten(),
         )
 
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
-                if m.bias is not None:
-                    init.zeros_(m.bias)
+        self.projection = nn.Linear(1024, a_dim)
 
     def forward(self, y):
-        return self.mlp_layers(y)
+        h = self.cnn_layers(y)
+        return self.projection(h)
     
 
 class Decoder(nn.Module):
@@ -48,38 +35,24 @@ class Decoder(nn.Module):
         a_t -> y_t
     """
 
-    def __init__(
-        self,
-        a_dim: int,
-        y_dim: int,
-        hidden_dim: Optional[int]=None,
-        dropout_p: float=0.4,
-    ):
+    def __init__(self, a_dim: int):
         super().__init__()
 
-        hidden_dim = hidden_dim if hidden_dim is not None else 2*a_dim
-
-        self.mlp_layers = nn.Sequential(
-            nn.Linear(a_dim, hidden_dim),
+        self.cnn_layers = nn.Sequential(
+            nn.ConvTranspose2d(1024, 128, 5, stride=2),
             nn.ReLU(),
-            nn.Dropout(p=dropout_p),
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.ConvTranspose2d(128, 64, 5, stride=2),
             nn.ReLU(),
-            nn.Dropout(p=dropout_p),
-            nn.Linear(hidden_dim, y_dim),
+            nn.ConvTranspose2d(64, 32, 6, stride=2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 3, 6, stride=2),
         )
 
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
-                if m.bias is not None:
-                    init.zeros_(m.bias)
+        self.projection = nn.Linear(a_dim, 1024)
 
     def forward(self, a):
-        return self.mlp_layers(a)
+        h = self.projection(a).unsqueeze(-1).unsqueeze(-1)
+        return self.cnn_layers(h)
 
 
 class CostModel(nn.Module):
