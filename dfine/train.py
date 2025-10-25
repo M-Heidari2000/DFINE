@@ -64,6 +64,7 @@ def train_backbone(
 
         # convert to tensor, transform to device, reshape to time-first
         y = torch.as_tensor(y, device=device)
+        y = ReplayBuffer.preprocess_obs(y)
         y = einops.rearrange(y, "b l c h w -> l b c h w")
         a = encoder(einops.rearrange(y, "l b c h w -> (l b) c h w"))
         a = einops.rearrange(a, "(l b) a -> l b a", b=args.batch_size)
@@ -170,6 +171,7 @@ def train_backbone(
 
                 # convert to tensor, transform to device, reshape to time-first
                 y = torch.as_tensor(y, device=device)
+                y = ReplayBuffer.preprocess_obs(y)
                 y = einops.rearrange(y, "b l c h w -> l b c h w")
                 a = encoder(einops.rearrange(y, "l b c h w -> (l b) c h w"))
                 a = einops.rearrange(a, "(l b) a -> l b a", b=args.batch_size)
@@ -312,6 +314,7 @@ def train_cost(
 
         # convert to tensor, transform to device, reshape to time-first
         y = torch.as_tensor(y, device=device)
+        y = ReplayBuffer.preprocess_obs(y)
         y = einops.rearrange(y, "b l c h w -> l b c h w")
         a = encoder(einops.rearrange(y, "l b c h w -> (l b) c h w"))
         a = einops.rearrange(a, "(l b) a -> l b a", b=args.batch_size)
@@ -364,6 +367,7 @@ def train_cost(
 
                 # convert to tensor, transform to device, reshape to time-first
                 y = torch.as_tensor(y, device=device)
+                y = ReplayBuffer.preprocess_obs(y)
                 y = einops.rearrange(y, "b l c h w -> l b c h w")
                 a = encoder(einops.rearrange(y, "l b c h w -> (l b) c h w"))
                 a = einops.rearrange(a, "(l b) a -> l b a", b=args.batch_size)
