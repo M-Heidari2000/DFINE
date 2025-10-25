@@ -7,7 +7,8 @@ import numpy as np
 
 class GymEnv(gym.Env):
     """
-    Gymnasium interface wrapper for dm_control env wrapped by pixels.Wrapper
+    Gymnasium interface wrapper for dm_control env wrapped by pixels.Wrapper.
+    Converts observations to (C, H, W).
     """
     metadata = {'render.modes': ['rgb_array']}
     reward_range = (-np.inf, np.inf)
@@ -21,8 +22,9 @@ class GymEnv(gym.Env):
     @property
     def observation_space(self):
         obs_spec = self._env.observation_spec()
-        # obs_spec['pixels'].shape is (H, W, C)
-        return gym.spaces.Box(0, 255, obs_spec['pixels'].shape, dtype=np.uint8)
+        h, w, c = obs_spec['pixels'].shape
+        # transpose shape for (C, H, W)
+        return gym.spaces.Box(0, 255, (c, h, w), dtype=np.uint8)
 
     @property
     def action_space(self):
@@ -30,38 +32,37 @@ class GymEnv(gym.Env):
         return gym.spaces.Box(action_spec.minimum, action_spec.maximum, dtype=np.float32)
 
     def reset(self, *, seed=None, options=None):
-        # Gymnasium will pass seed/options; dm_control reset() doesn't take them.
-        # Optional: if you want reproducibility per-episode, you can reseed the task RNG:
         if seed is not None and hasattr(self._env, "task") and hasattr(self._env.task, "_random"):
             self._env.task._random = np.random.RandomState(seed)
+
         time_step = self._env.reset()
         obs = time_step.observation['pixels']
+        obs = np.transpose(obs, (2, 0, 1))  # (C, H, W)
         info = {}
-        return obs, info  # Gymnasium expects (obs, info)
+        return obs, info
 
     def step(self, action):
         time_step = self._env.step(action)
         obs = time_step.observation['pixels']
+        obs = np.transpose(obs, (2, 0, 1))  # (C, H, W)
         reward = float(time_step.reward) if time_step.reward is not None else 0.0
-        terminated = bool(time_step.last())   # episode ended
-        truncated = False                     # dm_control doesn't report truncation; set as needed
+        terminated = bool(time_step.last())
+        truncated = False
         info = {'discount': time_step.discount}
         return obs, reward, terminated, truncated, info
 
     def render(self, mode='rgb_array', **kwargs):
         if mode != 'rgb_array':
-            raise NotImplementedError("Only rgb_array is supported")
+            raise NotImplementedError("Only rgb_array mode supported")
         if not kwargs:
-            # pixels.Wrapper stores desired render kwargs here commonly
             kwargs = getattr(self._env, "_render_kwargs", {"height": 64, "width": 64, "camera_id": 0})
         img = self._env.physics.render(**kwargs)
-        return img
+        # transpose render output as well
+        return np.transpose(img, (2, 0, 1))
 
 
 class RepeatAction(gym.Wrapper):
-    """
-    Action repeat wrapper (Gymnasium API)
-    """
+    """Action repeat wrapper (Gymnasium API)."""
     def __init__(self, env, skip=4):
         super().__init__(env=env)
         self._skip = skip
