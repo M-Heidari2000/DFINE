@@ -17,3 +17,4 @@ pytest_cache/
 
 *.ipynb
 wandb/
+data/

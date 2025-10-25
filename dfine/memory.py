@@ -1,6 +1,7 @@
-import minari
 import numpy as np
 from tqdm import tqdm
+from typing import Optional
+
 
 
 class ReplayBuffer:
@@ -9,22 +10,28 @@ class ReplayBuffer:
     """
 
     @staticmethod
-    def load_from_minari(dataset: minari.MinariDataset):
+    def from_numpy(
+        y: np.ndarray,
+        u: np.ndarray,
+        c: Optional[np.ndarray],
+        done: Optional[np.ndarray],
+    ):
+        size, y_dim = y.shape
+        _, u_dim = u.shape
+        
         buffer = ReplayBuffer(
-            capacity=dataset.total_steps,
-            y_dim=dataset.observation_space.shape[0],
-            u_dim=dataset.action_space.shape[0],
+            capacity=size,
+            y_dim=y_dim,
+            u_dim=u_dim,
         )
-        print("loading the dataset ...")
-        for episode in tqdm(dataset):
-            steps = episode.actions.shape[0]
-            for i in range(steps):
-                buffer.push(
-                    y=episode.observations[i],
-                    u=episode.actions[i],
-                    c=-episode.rewards[i],
-                    done=episode.terminations[i] or episode.truncations[i],
-                )
+        print("loading data from numpy array ...")
+        for i in range(size):
+            buffer.push(
+                y=y[i],
+                u=u[i],
+                c=c[i] if c is not None else 0.0,
+                done=done[i] if done is not None else False,
+            )
         return buffer
 
     def __init__(

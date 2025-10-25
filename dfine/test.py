@@ -8,62 +8,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from argparse import Namespace
 from tqdm import tqdm
-from .agents import MPCAgent
 from .models import (
     Encoder,
     Dynamics,
     CostModel,
     Decoder,
 )
-
-
-def test(
-    args: Namespace,
-    env: gym.Env,
-    encoder: Encoder,
-    dynamics_model: Dynamics,
-    cost_model: CostModel,
-) -> np.array:
-    
-    encoder.eval()
-    dynamics_model.eval()
-    cost_model.eval()
-
-    # agent
-    agent = MPCAgent(
-        encoder=encoder,
-        dynamics_model=dynamics_model,
-        cost_model=cost_model,
-        planning_horizon=args.planning_horizon,
-        action_noise=args.action_noise_std,
-    )
-
-    with torch.no_grad():
-        rewards = []
-        for _ in tqdm(range(args.num_test_episodes)):
-            obs, info = env.reset()
-            agent.reset()
-            action = env.action_space.sample()
-            done = False
-            total_reward = 0.0
-            while not done:
-                obs = obs.astype(np.float32)
-                planned_actions = agent(y=obs, u=action, explore=False)
-                action = planned_actions[0].flatten()
-                next_obs, reward, terminated, truncated, _ = env.step(action=action)
-                done = terminated or truncated
-                obs = next_obs
-                total_reward += reward
-            rewards.append(total_reward)
-
-        fig, ax = plt.subplots(figsize=(8, 6))
-        sns.histplot(rewards, bins=20, kde=True, ax=ax, color='teal')
-        ax.set_title("distribution of test rewards")
-        ax.set_xlabel("cumulative reward per episode")
-        ax.set_ylabel("count")
-
-        wandb.log({"test reward distribution": wandb.Image(fig)})
-        plt.close(fig)
 
 
 def test_prediction(

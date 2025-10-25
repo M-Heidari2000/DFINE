@@ -8,9 +8,9 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime
 from dfine.memory import ReplayBuffer
-from dfine.train import train_backbone, train_cost
-from dfine.test import test
-
+from dfine.train import train_backbone
+from dfine.data_loader import load_from_file
+from sklearn.model_selection import train_test_split
 
 def generate_id():
     """
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=1, help="random seed")
     parser.add_argument("--log-dir", type=str, default="log", help="logging directory")
     parser.add_argument("--run-id", type=str, default=generate_id(), help="id associated with this run")
-    parser.add_argument("--dataset", type=str, default="classic-control/pendulum/medium-v0", help="name of the minari dataset")
+    parser.add_argument("--data-path", type=str, required=True, help="name of the minari dataset")
     parser.add_argument("--num-updates", type=int, default=2500, help="number of gradient descent steps")
     parser.add_argument("--num-cost-updates", type=int, default=5000, help="number of gradient descent steps for the cost model")
     parser.add_argument("--test-ratio", type=float, default=0.2, help="train-test split ratio")
@@ -43,9 +43,6 @@ if __name__ == "__main__":
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="weight decay of the optimizer")
     parser.add_argument("--clip-grad-norm", type=float, default=1000.0, help="clip gradients to this value")
     parser.add_argument("--disable-gpu", action="store_true", default=False, help="disable using gpu")
-    parser.add_argument("--num-test-episodes", type=int, default=10, help="number of test episodes")
-    parser.add_argument("--planning-horizon", type=int, default=12, help="planning horizon for iLQR")
-    parser.add_argument("--action-noise-std", type=float, default=0.3, help="action noise for exploration")
     parser.add_argument("--notes", type=str, default="", help="extra notes to add to the run")
     parser.add_argument("--run-name", type=str, default="DFINE", help="name of the run")
     parser.add_argument("--ae-weight", type=float, default=1.0, help="autoencoder loss weight")
@@ -77,12 +74,11 @@ if __name__ == "__main__":
         torch.cuda.manual_seed(args.seed)
 
     # load the dataset
-    dataset = minari.load_dataset(args.dataset)
-    test_size = int(len(dataset) * args.test_ratio)
-    train_size = len(dataset) - test_size
-    train_data, test_data = minari.split_dataset(dataset=dataset, sizes=[train_size, test_size])
-    train_buffer = ReplayBuffer.load_from_minari(dataset=train_data)
-    test_buffer = ReplayBuffer.load_from_minari(dataset=test_data)
+    data_path = Path(args.data_path)
+    y, u = load_from_file(data_path=data_path)
+    y_train, u_train, y_test, u_test = train_test_split(y, u, test_size=args.test_ratio)
+    train_buffer = ReplayBuffer.from_numpy(y=y_train, u=u_train)
+    test_buffer = ReplayBuffer.from_numpy(y=y_test, u=u_test)
 
     print("training backbone ...")
     encoder, decoder, dynamics_model = train_backbone(
@@ -91,24 +87,4 @@ if __name__ == "__main__":
         test_buffer=test_buffer,
     )
     
-    print("training cost model ...")
-    cost_model = train_cost(
-        args=args,
-        encoder=encoder,
-        decoder=decoder,
-        dynamics_model=dynamics_model,
-        train_buffer=train_buffer,
-        test_buffer=test_buffer,
-    )
-
-    print("testing ...")
-    env = dataset.recover_environment()
-    test(
-        args=args,
-        env=env,
-        encoder=encoder,
-        dynamics_model=dynamics_model,
-        cost_model=cost_model
-    )
-
     wandb.finish()
