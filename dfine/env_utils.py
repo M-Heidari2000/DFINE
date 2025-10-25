@@ -1,4 +1,3 @@
-import numpy as np
 import gymnasium as gym
 from gymnasium.utils import RecordConstructorArgs
 from gymnasium.wrappers import RescaleAction
@@ -38,7 +37,7 @@ class ActionRepeatWrapper(gym.Wrapper, RecordConstructorArgs):
 
 
 def make_env(id: str, action_repeat: int=2):
-    env = gym.make(id=id)
+    env = gym.make(id=id, render_mode="rgb_array")
     env = ActionRepeatWrapper(env=env, repeat=action_repeat)
     env = RescaleAction(env=env, min_action=-1.0, max_action=1.0)
     return env
