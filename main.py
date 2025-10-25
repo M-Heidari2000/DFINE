@@ -26,7 +26,6 @@ if __name__ == "__main__":
     parser.add_argument("--run-id", type=str, default=generate_id(), help="id associated with this run")
     parser.add_argument("--data-path", type=str, required=True, help="name of the minari dataset")
     parser.add_argument("--num-updates", type=int, default=2500, help="number of gradient descent steps")
-    parser.add_argument("--num-cost-updates", type=int, default=5000, help="number of gradient descent steps for the cost model")
     parser.add_argument("--test-ratio", type=float, default=0.2, help="train-test split ratio")
     parser.add_argument("--test-interval", type=int, default=10, help="number of training steps before testing")
     parser.add_argument("--x-dim", type=int, default=30, help="x(state) dimension")
@@ -38,7 +37,6 @@ if __name__ == "__main__":
     parser.add_argument("--prediction-k", type=int, default=24, help="number of future steps prediction")
     parser.add_argument("--batch-size", type=int, default=128, help="batch size")
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
-    parser.add_argument("--cost-lr", type=float, default=1e-4, help="learning rate of the cost model")
     parser.add_argument("--eps", type=float, default=1e-8, help="epsilon for optimizer")
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="weight decay of the optimizer")
     parser.add_argument("--clip-grad-norm", type=float, default=1000.0, help="clip gradients to this value")
@@ -76,7 +74,7 @@ if __name__ == "__main__":
     # load the dataset
     data_path = Path(args.data_path)
     y, u = load_from_file(data_path=data_path)
-    y_train, u_train, y_test, u_test = train_test_split(y, u, test_size=args.test_ratio)
+    y_train, y_test, u_train, u_test = train_test_split(y, u, test_size=args.test_ratio)
     train_buffer = ReplayBuffer.from_numpy(y=y_train, u=u_train)
     test_buffer = ReplayBuffer.from_numpy(y=y_test, u=u_test)
 

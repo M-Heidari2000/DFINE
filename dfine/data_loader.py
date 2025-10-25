@@ -111,4 +111,7 @@ def load_from_file(
         ignore_nans=True
     )
 
-    return smoothed_spikes_source.numpy(), u.numpy()
+    y = smoothed_spikes_source[:-1].numpy()
+    u = u[1:].numpy()
+
+    return y, u

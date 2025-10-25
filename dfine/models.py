@@ -80,54 +80,6 @@ class Decoder(nn.Module):
 
     def forward(self, a):
         return self.mlp_layers(a)
-
-
-class CostModel(nn.Module):
-    """
-        Learnable quadratic cost function in the latent space
-    """
-
-    def __init__(
-        self,
-        x_dim: int,
-        u_dim: int,
-        device: str,
-    ):
-        
-        super().__init__()
-
-        self.x_dim = x_dim
-        self.u_dim = u_dim
-        
-        self.device = device
-        self.A = nn.Parameter(
-            torch.eye(x_dim, device=self.device, dtype=torch.float32),
-        )
-        self.B = nn.Parameter(
-            torch.eye(u_dim, device=self.device, dtype=torch.float32)
-        )
-        self.q = nn.Parameter(
-            torch.randn((x_dim, 1), device=self.device, dtype=torch.float32)
-        )
-
-    @property
-    def Q(self):
-        return self.A @ self.A.T
-    
-    @property
-    def R(self):
-        L = torch.tril(self.B)
-        diagonals = nn.functional.softplus(L.diagonal()) + 1e-4
-        X = 1 - torch.eye(self.u_dim, device=self.device, dtype=torch.float32)
-        L = L * X + diagonals.diag()
-        return L @ L.T
-    
-    def forward(self, x, u):
-        # x: b x
-        # u: b u
-        cost = 0.5 * x @ self.Q @ x.T + 0.5 * u @ self.R @ u.T
-        cost = cost.diagonal().unsqueeze(1) + x @ self.q
-        return cost
         
 
 class Dynamics(nn.Module):

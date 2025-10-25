@@ -13,7 +13,6 @@ from .models import (
     Encoder,
     Decoder,
     Dynamics,
-    CostModel,
 )
 
 

@@ -13,8 +13,8 @@ class ReplayBuffer:
     def from_numpy(
         y: np.ndarray,
         u: np.ndarray,
-        c: Optional[np.ndarray],
-        done: Optional[np.ndarray],
+        c: Optional[np.ndarray]=None,
+        done: Optional[np.ndarray]=None,
     ):
         size, y_dim = y.shape
         _, u_dim = u.shape
