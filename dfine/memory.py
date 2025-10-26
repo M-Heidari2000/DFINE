@@ -1,4 +1,8 @@
+import minari
 import numpy as np
+from tqdm import tqdm
+from io import BytesIO
+from PIL import Image
 from einops import rearrange
 
 
@@ -6,6 +10,27 @@ class ReplayBuffer:
     """
         Replay buffer holds sample trajectories
     """
+
+    @staticmethod
+    def load_from_minari(dataset: minari.MinariDataset):
+        buffer = ReplayBuffer(
+            capacity=dataset.total_steps,
+            u_dim=dataset.action_space.shape[0],
+        )
+        print("loading the dataset")
+        for episode in tqdm(dataset):
+            steps = episode.actions.shape[0]
+            for i in range(steps):
+                y = episode.infos["pixels"][i].tobytes()
+                y = Image.open(BytesIO(y)).convert("RGB")
+                y = rearrange(np.array(y), "h w c -> c h w")
+                buffer.push(
+                    y=y,
+                    u=episode.actions[i],
+                    c=-episode.rewards[i],
+                    done=episode.terminations[i] or episode.truncations[i],
+                )
+        return buffer
 
     @staticmethod
     def preprocess_obs(obs, bit_depth=5):
@@ -17,8 +42,6 @@ class ReplayBuffer:
         reduced_obs = np.floor(obs / 2 ** (8 - bit_depth))
         normalized_obs = reduced_obs / 2**bit_depth - 0.5
         normalized_obs += np.random.uniform(0.0, 1.0 / 2**bit_depth, normalized_obs.shape)
-        # convert HWC -> CHW
-        normalized_obs = rearrange(normalized_obs, "b h w c -> b c h w")
         return normalized_obs
     
     @staticmethod
@@ -31,8 +54,6 @@ class ReplayBuffer:
         restored = np.clip(restored, 0, 2 ** bit_depth - 1)
         restored = restored * (2 ** (8 - bit_depth))
         restored = np.round(restored).astype(np.uint8)
-        # convert CHW -> HWC
-        restored = rearrange(restored, "b c h w -> b h w c")
         return restored
 
     def __init__(

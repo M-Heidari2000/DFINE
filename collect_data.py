@@ -39,6 +39,7 @@ if __name__ == "__main__":
             else:
                 action = env.action_space.sample()
             obs, reward, terminated, truncated, info = env.step(action=action)
+            print(info["pixels"].shape)
             done = terminated or truncated
 
     dataset = env.create_dataset(
