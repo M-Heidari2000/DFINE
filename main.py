@@ -100,15 +100,5 @@ if __name__ == "__main__":
         train_buffer=train_buffer,
         test_buffer=test_buffer,
     )
-
-    print("testing ...")
-    env = dataset.recover_environment()
-    test(
-        args=args,
-        env=env,
-        encoder=encoder,
-        dynamics_model=dynamics_model,
-        cost_model=cost_model
-    )
-
+    
     wandb.finish()
