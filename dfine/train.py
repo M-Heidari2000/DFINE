@@ -145,7 +145,7 @@ def train_backbone(
 
         total_loss = (
             y_pred_loss +
-            y_filter_loss +
+            args.filtering_weight * y_filter_loss +
             args.ae_weight * ae_loss +
             args.consistency_weight * consistency_loss
         )
@@ -251,7 +251,7 @@ def train_backbone(
 
                 total_loss = (
                     y_pred_loss +
-                    y_filter_loss +
+                    args.filtering_weight * y_filter_loss +
                     args.ae_weight * ae_loss +
                     args.consistency_weight * consistency_loss
                 )

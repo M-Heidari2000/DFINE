@@ -47,6 +47,7 @@ if __name__ == "__main__":
     parser.add_argument("--ae-weight", type=float, default=1.0, help="autoencoder loss weight")
     parser.add_argument("--consistency-weight", type=float, default=1.0, help="consistency in dynamic transition loss weight")
     parser.add_argument("--consistency-mode", type=str, default="mean", help="kl or mean regularization")
+    parser.add_argument("--filtering-weight", type=float, default=1.0, help="weight for the filtering in the loss")
 
     args = parser.parse_args()
 
