@@ -1,6 +1,7 @@
 import torch
 import einops
 from typing import Optional
+from tqdm import tqdm
 from argparse import Namespace
 from .models import (
     Encoder,
@@ -139,7 +140,7 @@ def test_k_step_prediction(
         mean = torch.zeros((B, args.x_dim), device=y.device)
         cov = torch.eye(args.x_dim, device=y.device).repeat([B, 1, 1])
 
-        for t in range(1, L - prediction_k):
+        for t in tqdm(range(1, L - prediction_k)):
             mean, cov = dynamics_model.dynamics_update(
                 mean=mean,
                 cov=cov,
