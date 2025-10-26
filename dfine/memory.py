@@ -1,4 +1,5 @@
 import numpy as np
+from einops import rearrange
 
 
 class ReplayBuffer:
@@ -16,6 +17,8 @@ class ReplayBuffer:
         reduced_obs = np.floor(obs / 2 ** (8 - bit_depth))
         normalized_obs = reduced_obs / 2**bit_depth - 0.5
         normalized_obs += np.random.uniform(0.0, 1.0 / 2**bit_depth, normalized_obs.shape)
+        # convert HWC -> CHW
+        normalized_obs = rearrange(normalized_obs, "b h w c -> b c h w")
         return normalized_obs
     
     @staticmethod
@@ -28,6 +31,8 @@ class ReplayBuffer:
         restored = np.clip(restored, 0, 2 ** bit_depth - 1)
         restored = restored * (2 ** (8 - bit_depth))
         restored = np.round(restored).astype(np.uint8)
+        # convert CHW -> HWC
+        restored = rearrange(restored, "b c h w -> b h w c")
         return restored
 
     def __init__(
