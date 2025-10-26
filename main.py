@@ -9,7 +9,6 @@ from datetime import datetime
 from dfine.memory import ReplayBuffer
 from dfine.train import train_backbone
 from dfine.data_loader import load_from_file
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 
