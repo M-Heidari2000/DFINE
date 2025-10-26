@@ -35,7 +35,7 @@ class Encoder(nn.Module):
     def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
+                init.xavier_normal_(m.weight)
                 if m.bias is not None:
                     init.zeros_(m.bias)
 
@@ -74,7 +74,7 @@ class Decoder(nn.Module):
     def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                init.orthogonal_(m.weight, gain=nn.init.calculate_gain("relu"))
+                init.xavier_normal_(m.weight)
                 if m.bias is not None:
                     init.zeros_(m.bias)
 
