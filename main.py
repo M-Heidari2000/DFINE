@@ -2,7 +2,6 @@ import os
 import json
 import wandb
 import torch
-import minari
 import argparse
 import numpy as np
 from pathlib import Path
@@ -11,6 +10,8 @@ from dfine.memory import ReplayBuffer
 from dfine.train import train_backbone
 from dfine.data_loader import load_from_file
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
 
 def generate_id():
     """
@@ -71,10 +72,17 @@ if __name__ == "__main__":
     if torch.cuda.is_available():
         torch.cuda.manual_seed(args.seed)
 
-    # load the dataset
+    # load the dataset and normalize it
     data_path = Path(args.data_path)
     y, u = load_from_file(data_path=data_path)
     y_train, y_test, u_train, u_test = train_test_split(y, u, test_size=args.test_ratio)
+    y_scaler, u_scaler = StandardScaler(), StandardScaler()
+    y_scaler.fit(y_train)
+    u_scaler.fit(u_train)
+    y_train = y_scaler.transform(y_train)
+    y_test = y_scaler.transform(y_test)
+    u_train = u_scaler.transform(u_train)
+    u_test = u_scaler.transform(u_test)
     train_buffer = ReplayBuffer.from_numpy(y=y_train, u=u_train)
     test_buffer = ReplayBuffer.from_numpy(y=y_test, u=u_test)
 
