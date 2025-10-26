@@ -74,9 +74,13 @@ if __name__ == "__main__":
         torch.cuda.manual_seed(args.seed)
 
     # load the dataset and normalize it
+    # load the dataset and normalize it
     data_path = Path(args.data_path)
     y, u = load_from_file(data_path=data_path)
-    y_train, y_test, u_train, u_test = train_test_split(y, u, test_size=args.test_ratio)
+    test_size = int(y.shape[0] * args.test_ratio)
+    train_size = y.shape[0] - test_size
+    y_train, y_test = y[:train_size], y[train_size:]
+    u_train, u_test = u[:train_size], u[train_size:]
     y_scaler, u_scaler = StandardScaler(), StandardScaler()
     y_scaler.fit(y_train)
     u_scaler.fit(u_train)
