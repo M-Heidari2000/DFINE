@@ -75,20 +75,24 @@ if __name__ == "__main__":
     # load the dataset and normalize it
     # load the dataset and normalize it
     data_path = Path(args.data_path)
-    y, u = load_from_file(data_path=data_path)
+    y, u, z = load_from_file(data_path=data_path)
     test_size = int(y.shape[0] * args.test_ratio)
     train_size = y.shape[0] - test_size
     y_train, y_test = y[:train_size], y[train_size:]
     u_train, u_test = u[:train_size], u[train_size:]
-    y_scaler, u_scaler = StandardScaler(), StandardScaler()
+    z_train, z_test = z[:train_size], z[train_size:]
+    y_scaler, u_scaler, z_scaler = StandardScaler(), StandardScaler(), StandardScaler()
     y_scaler.fit(y_train)
     u_scaler.fit(u_train)
+    z_scaler.fit(z_train)
     y_train = y_scaler.transform(y_train)
     y_test = y_scaler.transform(y_test)
     u_train = u_scaler.transform(u_train)
     u_test = u_scaler.transform(u_test)
-    train_buffer = ReplayBuffer.from_numpy(y=y_train, u=u_train)
-    test_buffer = ReplayBuffer.from_numpy(y=y_test, u=u_test)
+    z_train = z_scaler.transform(z_train)
+    z_test = z_scaler.transform(z_test)
+    train_buffer = ReplayBuffer.from_numpy(y=y_train, u=u_train, z=z_train)
+    test_buffer = ReplayBuffer.from_numpy(y=y_test, u=u_test, z=z_test)
 
     print("training backbone ...")
     encoder, decoder, dynamics_model = train_backbone(
