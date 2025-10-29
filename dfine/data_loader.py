@@ -110,8 +110,9 @@ def load_from_file(
         switch_causal=False,
         ignore_nans=True
     )
-
+    # behavior
+    z = torch.cat([pos, vel], dim=1)[:-1].numpy()
     y = smoothed_spikes_source[:-1].numpy()
     u = u[1:].numpy()
 
-    return y, u
+    return y, u, z

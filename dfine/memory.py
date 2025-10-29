@@ -13,22 +13,26 @@ class ReplayBuffer:
     def from_numpy(
         y: np.ndarray,
         u: np.ndarray,
+        z: np.ndarray,
         c: Optional[np.ndarray]=None,
         done: Optional[np.ndarray]=None,
     ):
         size, y_dim = y.shape
         _, u_dim = u.shape
+        _, z_dim = z.shape
         
         buffer = ReplayBuffer(
             capacity=size,
             y_dim=y_dim,
             u_dim=u_dim,
+            z_dim=z_dim
         )
         print("loading data from numpy array ...")
         for i in range(size):
             buffer.push(
                 y=y[i],
                 u=u[i],
+                z=z[i],
                 c=c[i] if c is not None else 0.0,
                 done=done[i] if done is not None else False,
             )
@@ -39,14 +43,17 @@ class ReplayBuffer:
         capacity: int,
         y_dim: int,
         u_dim: int,
+        z_dim: int,
     ):
         self.capacity = capacity
 
         self.y_dim = y_dim
         self.u_dim = u_dim
+        self.z_dim = z_dim
 
         self.ys = np.zeros((capacity, y_dim), dtype=np.float32)
         self.us = np.zeros((capacity, u_dim), dtype=np.float32)
+        self.zs = np.zeros((capacity, z_dim), dtype=np.float32)
         self.cs = np.zeros((capacity, 1), dtype=np.float32)
         self.done = np.zeros((capacity, 1), dtype=bool)
 
@@ -60,6 +67,7 @@ class ReplayBuffer:
         self,
         y,
         u,
+        z,
         c,
         done,
     ):
@@ -68,6 +76,7 @@ class ReplayBuffer:
         """
         self.ys[self.index] = y
         self.us[self.index] = u
+        self.zs[self.index] = z
         self.cs[self.index] = c
         self.done[self.index] = done
 
@@ -98,6 +107,9 @@ class ReplayBuffer:
         sampled_us = self.us[sampled_ranges].reshape(
             batch_size, chunk_length, self.us.shape[1]
         )
+        sampled_zs = self.zs[sampled_ranges].reshape(
+            batch_size, chunk_length, self.zs.shape[1],
+        )
         sampled_cs = self.cs[sampled_ranges].reshape(
             batch_size, chunk_length, 1
         )
@@ -105,4 +117,4 @@ class ReplayBuffer:
             batch_size, chunk_length, 1
         )
 
-        return sampled_ys, sampled_us, sampled_cs, sampled_done
+        return sampled_ys, sampled_us, sampled_zs, sampled_cs, sampled_done
