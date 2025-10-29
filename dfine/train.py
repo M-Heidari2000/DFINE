@@ -274,10 +274,9 @@ def train_backbone(
     return encoder, decoder, dynamics_model
 
 
-def train_cost(
+def train_z_decoder(
     args: Namespace,
     encoder: Encoder,
-    decoder: Decoder,
     dynamics_model: Dynamics,
     train_buffer: ReplayBuffer,
     test_buffer: ReplayBuffer,
@@ -295,14 +294,10 @@ def train_cost(
     for p in encoder.parameters():
         p.requires_grad = False
 
-    for p in decoder.parameters():
-        p.requires_grad = False
-
     for p in dynamics_model.parameters():
         p.requires_grad = False
 
     encoder.eval()
-    decoder.eval()
     dynamics_model.eval()
 
     wandb.watch([z_decoder], log="all", log_freq=10)

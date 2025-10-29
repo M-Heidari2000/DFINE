@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime
 from dfine.memory import ReplayBuffer
-from dfine.train import train_backbone
+from dfine.train import train_backbone, train_z_decoder
 from dfine.data_loader import load_from_file
 from sklearn.preprocessing import StandardScaler
 
@@ -99,6 +99,15 @@ if __name__ == "__main__":
         args=args,
         train_buffer=train_buffer,
         test_buffer=test_buffer,
+    )
+
+    print("trainin z (behavior) decoder")
+    z_decoder = train_z_decoder(
+        args=args,
+        encoder=encoder,
+        dynamics_model=dynamics_model,
+        train_buffer=train_buffer,
+        test_buffer=test_buffer
     )
     
     wandb.finish()
