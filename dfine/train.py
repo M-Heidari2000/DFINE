@@ -288,7 +288,7 @@ def train_z_decoder(
         z_dim=train_buffer.z_dim,
         hidden_dim=args.hidden_dim,
         dropout_p=args.dropout_p,
-    )
+    ).to(device)
 
     # freeze backbone models
     for p in encoder.parameters():
@@ -306,7 +306,7 @@ def train_z_decoder(
     optimizer = torch.optim.Adam(all_params, lr=args.lr, eps=args.eps, weight_decay=args.weight_decay)
 
     # train and test loop
-    print("training ...")
+    print(f"training on {device} ...")
     for update in tqdm(range(args.num_updates)):    
         # train
         z_decoder.train()
