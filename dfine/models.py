@@ -132,8 +132,6 @@ class Dynamics(nn.Module):
         x_dim: int,
         u_dim: int,
         a_dim: int,
-        hidden_dim: Optional[int]=128,
-        dropout_p: Optional[float]=0.4,
         min_var: float=1e-4,
     ):
         super().__init__()
