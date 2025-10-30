@@ -1,7 +1,10 @@
 import torch
 import einops
+import wandb
+import numpy as np
 from typing import Optional
 from tqdm import tqdm
+from scipy import stats
 from argparse import Namespace
 from .models import (
     Encoder,
@@ -130,6 +133,9 @@ def test_k_step_prediction(
         dynamics_model.eval()
         z_decoder.eval()
 
+        device = next(encoder.parameters()).device
+        y, u, z = y.to(device), u.to(device), z.to(device)
+
         L, B, y_dim = y.shape
         _, _, z_dim = z.shape
 
@@ -174,5 +180,27 @@ def test_k_step_prediction(
             pred_a = dynamics_model.get_a(pred_mean)
             y_pred[t-1] = decoder(pred_a)
             z_pred[t-1] = z_decoder(pred_mean)
+
+        y_true = y[1+prediction_k:].cpu().numpy()
+        y_pred = y_pred.squeeze(1).cpu().numpy()
+        z_true = z[1+prediction_k:].cpu().numpy()
+        z_pred = z_pred.squeeze(1).cpu().numpy()
+
+        pearson_coefs_y = np.zeros((y_dim, ))
+        pearson_coefs_z = np.zeros((z_dim, ))
+
+        for i in range(y_dim):
+            pearson_coefs_y[i], _ = stats.pearsonr(y_true[:, i], y_pred[:, i])
+        
+        for i in range(z_dim):
+            pearson_coefs_z[i], _ = stats.pearsonr(z_true[:, i], z_pred[:, i])
+
+        wandb.log(
+            {
+                "y correlation (averaged over channels)": pearson_coefs_y.mean(),
+                "z correlation (averaged over channels)": pearson_coefs_z.mean(),
+            },
+            step=prediction_k,
+        )
 
         return y_pred, z_pred

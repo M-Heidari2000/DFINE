@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from dfine.memory import ReplayBuffer
 from dfine.train import train_backbone, train_z_decoder
+from dfine.test import test_k_step_prediction
 from dfine.data_loader import load_from_file
 from sklearn.preprocessing import StandardScaler
 
@@ -47,6 +48,7 @@ if __name__ == "__main__":
     parser.add_argument("--consistency-weight", type=float, default=1.0, help="consistency in dynamic transition loss weight")
     parser.add_argument("--consistency-mode", type=str, default="mean", help="kl or mean regularization")
     parser.add_argument("--filtering-weight", type=float, default=1.0, help="weight for the filtering in the loss")
+    parser.add_argument("--test-k", nargs="+", type=int, help="a list of k, for k step ahead prediction test")
 
     args = parser.parse_args()
 
@@ -101,7 +103,7 @@ if __name__ == "__main__":
         test_buffer=test_buffer,
     )
 
-    print("trainin z (behavior) decoder")
+    print("training z (behavior) decoder")
     z_decoder = train_z_decoder(
         args=args,
         encoder=encoder,
@@ -109,5 +111,19 @@ if __name__ == "__main__":
         train_buffer=train_buffer,
         test_buffer=test_buffer
     )
-    
+
+    print("testing")
+    for k in args.test_k:
+        test_k_step_prediction(
+            args=args,
+            encoder=encoder,
+            decoder=decoder,
+            z_decoder=z_decoder,
+            dynamics_model=dynamics_model,
+            z=torch.tensor(z_test).unsqueeze(1),
+            y=torch.tensor(y_test).unsqueeze(1),
+            u=torch.tensor(u_test).unsqueeze(1),
+            prediction_k=k,
+        )
+
     wandb.finish()
