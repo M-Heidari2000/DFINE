@@ -7,7 +7,8 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime
 from dfine.memory import ReplayBuffer
-from dfine.train import train_backbone
+from dfine.train import train_backbone, train_z_decoder
+from dfine.test import test_k_step_prediction
 from dfine.data_loader import load_from_file
 from sklearn.preprocessing import StandardScaler
 
@@ -47,6 +48,7 @@ if __name__ == "__main__":
     parser.add_argument("--consistency-weight", type=float, default=1.0, help="consistency in dynamic transition loss weight")
     parser.add_argument("--consistency-mode", type=str, default="mean", help="kl or mean regularization")
     parser.add_argument("--filtering-weight", type=float, default=1.0, help="weight for the filtering in the loss")
+    parser.add_argument("--test-k", nargs="+", type=int, help="a list of k, for k step ahead prediction test")
 
     args = parser.parse_args()
 
@@ -73,21 +75,26 @@ if __name__ == "__main__":
         torch.cuda.manual_seed(args.seed)
 
     # load the dataset and normalize it
+    # load the dataset and normalize it
     data_path = Path(args.data_path)
-    y, u = load_from_file(data_path=data_path)
+    y, u, z = load_from_file(data_path=data_path)
     test_size = int(y.shape[0] * args.test_ratio)
     train_size = y.shape[0] - test_size
     y_train, y_test = y[:train_size], y[train_size:]
     u_train, u_test = u[:train_size], u[train_size:]
-    y_scaler, u_scaler = StandardScaler(), StandardScaler()
+    z_train, z_test = z[:train_size], z[train_size:]
+    y_scaler, u_scaler, z_scaler = StandardScaler(), StandardScaler(), StandardScaler()
     y_scaler.fit(y_train)
     u_scaler.fit(u_train)
+    z_scaler.fit(z_train)
     y_train = y_scaler.transform(y_train)
     y_test = y_scaler.transform(y_test)
     u_train = u_scaler.transform(u_train)
     u_test = u_scaler.transform(u_test)
-    train_buffer = ReplayBuffer.from_numpy(y=y_train, u=u_train)
-    test_buffer = ReplayBuffer.from_numpy(y=y_test, u=u_test)
+    z_train = z_scaler.transform(z_train)
+    z_test = z_scaler.transform(z_test)
+    train_buffer = ReplayBuffer.from_numpy(y=y_train, u=u_train, z=z_train)
+    test_buffer = ReplayBuffer.from_numpy(y=y_test, u=u_test, z=z_test)
 
     print("training backbone ...")
     encoder, decoder, dynamics_model = train_backbone(
@@ -95,5 +102,28 @@ if __name__ == "__main__":
         train_buffer=train_buffer,
         test_buffer=test_buffer,
     )
-    
+
+    print("training z (behavior) decoder")
+    z_decoder = train_z_decoder(
+        args=args,
+        encoder=encoder,
+        dynamics_model=dynamics_model,
+        train_buffer=train_buffer,
+        test_buffer=test_buffer
+    )
+
+    print("testing")
+    for k in args.test_k:
+        test_k_step_prediction(
+            args=args,
+            encoder=encoder,
+            decoder=decoder,
+            z_decoder=z_decoder,
+            dynamics_model=dynamics_model,
+            z=torch.tensor(z_test).unsqueeze(1),
+            y=torch.tensor(y_test).unsqueeze(1),
+            u=torch.tensor(u_test).unsqueeze(1),
+            prediction_k=k,
+        )
+
     wandb.finish()
