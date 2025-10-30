@@ -191,8 +191,8 @@ def test_k_step_prediction(
             {
                 "y correlation (averaged over channels)": corr_y.item(),
                 "z correlation (averaged over channels)": corr_z.item(),
+                "prediction k": prediction_k,
             },
-            step=prediction_k,
         )
 
         return y_pred, z_pred
