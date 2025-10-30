@@ -4,7 +4,7 @@ import wandb
 import numpy as np
 from typing import Optional
 from tqdm import tqdm
-from scipy import stats
+from .utils import pearson_corr
 from argparse import Namespace
 from .models import (
     Encoder,
@@ -181,24 +181,16 @@ def test_k_step_prediction(
             y_pred[t-1] = decoder(pred_a)
             z_pred[t-1] = z_decoder(pred_mean)
 
-        y_true = y[1+prediction_k:].cpu().numpy()
-        y_pred = y_pred.squeeze(1).cpu().numpy()
-        z_true = z[1+prediction_k:].cpu().numpy()
-        z_pred = z_pred.squeeze(1).cpu().numpy()
+        y_true = y[1+prediction_k:]
+        z_true = z[1+prediction_k:]
 
-        pearson_coefs_y = np.zeros((y_dim, ))
-        pearson_coefs_z = np.zeros((z_dim, ))
-
-        for i in range(y_dim):
-            pearson_coefs_y[i], _ = stats.pearsonr(y_true[:, i], y_pred[:, i])
-        
-        for i in range(z_dim):
-            pearson_coefs_z[i], _ = stats.pearsonr(z_true[:, i], z_pred[:, i])
+        corr_y = pearson_corr(true=y_true, pred=y_pred)
+        corr_z = pearson_corr(true=z_true, pred=z_pred)
 
         wandb.log(
             {
-                "y correlation (averaged over channels)": pearson_coefs_y.mean(),
-                "z correlation (averaged over channels)": pearson_coefs_z.mean(),
+                "y correlation (averaged over channels)": corr_y.item(),
+                "z correlation (averaged over channels)": corr_z.item(),
             },
             step=prediction_k,
         )
